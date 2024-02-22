@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import scipy.special as sc
 from sklearn.neighbors import KernelDensity
 from scipy.optimize import minimize
-
+from mpmath import hyper
 
 def Density_J(l, a, b ,t ,x):
     multiplier = np.exp(-l * t)
@@ -14,8 +14,9 @@ def Density_J(l, a, b ,t ,x):
     u_input2 = np.linspace(1, 2, a)
     u_input3 = l * t * (b * x/a)**a
 
-    first_u = sc.hyp1f1(u_input1, u_input2, u_input3)
-    return multiplier *(first_m * first_u)
+    #first_u = sc.hyp1f1(u_input1, u_input2, u_input3)
+    first_u = np.array([float(hyper(u_input1, u_input2, i,  maxterms=10**6)) for i in u_input3])
+    return np.log(multiplier) + np.log(first_m) + np.log(first_u)
 
 def optimize_DensityJ(param, a = 1, T= 1/4, H = None):
     l, b = param
@@ -31,9 +32,9 @@ def Density_RelaxJ(l, b ,t, x):
     multiplier = np.exp(-l * t)
     first_m = np.exp(-b * x) * np.sqrt(l * b * t/x)
 
-    i_input = 2 * np.sqrt(l * b * t *x)
-    first_i = sc.j0(i_input)
-    return multiplier * first_m * first_i
+    i_input = 2 * np.sqrt(l * b * t * x)
+    first_i = sc.i1(i_input)
+    return np.log(multiplier) + np.log(first_m) + np.log(first_i)
 
 def optimize_RelaxJ(params, T= 1/4, H = None):
     l, b = params
@@ -80,22 +81,25 @@ if __name__ == '__main__':
     # [Optimization]
     l, b, T = [1, 1, 1/4]
     Test_RelaxJ = Density_RelaxJ(l, b, T, H)
+    Test_DensityJ = Density_J(l, 1, b, T, H)
+    plt.plot(Test_RelaxJ, Test_DensityJ)
+    plt.show()
+
 
     bounds = [(0, None), (0, None)]
     init = [0.1, 0.1]
     Nfeval = 1
-    res = minimize(optimize_RelaxJ, init, args=(T, H), method='L-BFGS-B', options={'maxiter': 50000}, bounds=bounds, callback=Callback_RelaxJ, tol = 0.001)
+    res = minimize(optimize_RelaxJ, init, args=(T, H), method='Nelder-Mead', options={'maxiter': 50000}, bounds=bounds, callback=Callback_RelaxJ, tol = 0.001)
     l1, b = res.x
     print('lambda: %.4f, beta %.4f' % (l1, b))
 
     #[Re-estimation for alpha = 1...6]
-    # for a in range(1, 6):
-    #     init = res.x
-    #     Nfeval = 1
-    #     print('==========optimization for a = %d===========' % a)
-    #     res = minimize(optimize_DensityJ, init, args=(a, T, H), method='L-BFGS-B', options={'maxiter': 50000}, bounds=bounds,
-    #                    callback=Callback_RelaxJ, tol=0.001)
-    #     print('lambda: %.4f, beta %.4f' % (res.x[0], res.x[1]))
+    for a in range(1, 6):
+        Nfeval = 1
+        print('==========optimization for a = %d===========' % a)
+        res = minimize(optimize_DensityJ, init, args=(a, T, H), method='Nelder-Mead', options={'maxiter': 50000}, bounds=bounds,
+                       callback=Callback_RelaxJ, tol=0.001)
+        print('lambda: %.4f, beta %.4f' % (res.x[0], res.x[1]))
 
 
     # [For stock estimation]
@@ -113,6 +117,7 @@ if __name__ == '__main__':
         d_input = (e * (x - v *d) + b * u_**2 *d) / (e * u_ * np.sqrt(d))
         last_d = sc.pbdv(-a, d_input)[0] # TODO: check -a is correct
 
+        print(e, u_)
         return m1 * m2 * np.exp(log1 + log2) * last_d #TODO: check large negative return -0.52 causing error
 
     def Density_stock(l1, a, b, mu, sigma, l2, muV, sigmaV, e, x, d= 1/252):
