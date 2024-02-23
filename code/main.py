@@ -4,14 +4,15 @@ import matplotlib.pyplot as plt
 import scipy.special as sc
 from sklearn.neighbors import KernelDensity
 from scipy.optimize import minimize
-from mpmath import hyper
-
+from mpmath import hyper, pcfd
+import mpmath as mp
+import warnings
 def Density_J(l, a, b ,t ,x):
     multiplier = np.exp(-l * t)
     first_m = l * b**a * t * x**(a-1) * np.exp(-b * x)/ sc.factorial(a-1)
 
-    u_input1 = np.array([])# TODO: check taking only two inputs
-    u_input2 = np.linspace(1, 2, a)
+    u_input1 = np.array([])
+    u_input2 = np.linspace(1 + 1/a, 2, a)
     u_input3 = l * t * (b * x/a)**a
 
     #first_u = sc.hyp1f1(u_input1, u_input2, u_input3)
@@ -82,14 +83,12 @@ if __name__ == '__main__':
     l, b, T = [1, 1, 1/4]
     Test_RelaxJ = Density_RelaxJ(l, b, T, H)
     Test_DensityJ = Density_J(l, 1, b, T, H)
-    plt.plot(Test_RelaxJ, Test_DensityJ)
-    plt.show()
 
 
     bounds = [(0, None), (0, None)]
     init = [0.1, 0.1]
     Nfeval = 1
-    res = minimize(optimize_RelaxJ, init, args=(T, H), method='Nelder-Mead', options={'maxiter': 50000}, bounds=bounds, callback=Callback_RelaxJ, tol = 0.001)
+    res = minimize(optimize_RelaxJ, init, args=(T, H), method='Nelder-Mead', options={'maxiter': 100}, bounds=bounds, callback=Callback_RelaxJ, tol = 0.001)
     l1, b = res.x
     print('lambda: %.4f, beta %.4f' % (l1, b))
 
@@ -97,7 +96,7 @@ if __name__ == '__main__':
     for a in range(1, 6):
         Nfeval = 1
         print('==========optimization for a = %d===========' % a)
-        res = minimize(optimize_DensityJ, init, args=(a, T, H), method='Nelder-Mead', options={'maxiter': 50000}, bounds=bounds,
+        res = minimize(optimize_DensityJ, init, args=(a, T, H), method='Nelder-Mead', options={'maxiter': 100}, bounds=bounds,
                        callback=Callback_RelaxJ, tol=0.001)
         print('lambda: %.4f, beta %.4f' % (res.x[0], res.x[1]))
 
@@ -107,59 +106,87 @@ if __name__ == '__main__':
     plt.plot(RET)
     plt.show()
 
-    def psi(x, v, u_, a = None, b = None, d = 1/252, e= None):
-        m1 = d ** ((a-1)/2) / np.sqrt( 2* np.pi * u_**2)
-        m2 = (b * u_/e ) **a
+    def log_psi(x, v, up, a = None, b = None, d =1 / 252, e= None):
+        log_m1 = ((a-1)/2)  * np.log(d) - 1/2 * np.log(2 * np.pi * up ** 2)
+        log_m2 = a * np.log(b * up / e)
 
-        log1 = -(x - v*d)**2 / (2 * u_**2 * d)
-        log2 = (e * (x- v*d) + b * u_**2 * d)**2
+        log1 = -(x - v*d)**2 / (2 * up ** 2 * d)
+        log2 = (e * (x - v * d) + b * up ** 2 * d) ** 2 / ((2 * e * up)**2 *d)
 
-        d_input = (e * (x - v *d) + b * u_**2 *d) / (e * u_ * np.sqrt(d))
-        last_d = sc.pbdv(-a, d_input)[0] # TODO: check -a is correct
+        d_input = (e * (x - v * d ) + b * up ** 2 * d) / (e * up * np.sqrt(d))
+        #loglast_d = np.log(sc.pbdv(-a, d_input)[0])
 
-        print(e, u_)
-        return m1 * m2 * np.exp(log1 + log2) * last_d #TODO: check large negative return -0.52 causing error
+        #loglast_d = np.log(float(pcfd(-a, d_input)))
+        #inf_flag = np.isinf(loglast_d)
+        # return log_m1 + log_m2 + log1 + log2 + loglast_d #TODO: check large negative return -0.52 causing error
+
+        final_add = [float(log_m1 + log_m2 + log1[i] + log2[i] + mp.log(pcfd(-a, d_input[i]))) for i in range(len(d_input))]
+        return np.array(final_add)
+
+
+
+
 
     def Density_stock(l1, a, b, mu, sigma, l2, muV, sigmaV, e, x, d= 1/252):
         v = mu + muV/d
-        u_ = np.sqrt(sigma**2 + sigmaV**2/d)
+        up = np.sqrt(sigma**2 + sigmaV**2/d)
 
-        psi1 = psi(x, v, u_, a = a, b = b, d = d, e = e)
-        psi2 = psi(x, mu, sigma, a = a, b = b, d = d, e = e) # TODO: different between note and mathematica code
-        #psi2 = psi1
+
+        psi1 = np.exp(log_psi(x, v, up, a = a, b = b, d = d, e = e))
+        #print('v, up, psi1 is %.2f, %.2f, %.2f' %(v, up, np.sum(psi1)))
+        psi2 = np.exp(log_psi(x, mu, sigma, a = a, b = b, d = d, e = e))
+        #print('mu, sigma, psi2 is %.2f, %.2f, %.2f' % (mu, sigma, np.sum(psi2)))
 
         first = l1 * l2 * d**2 * psi1
 
-        m2 = l2 * d * (1- l1 * d) /np.sqrt( 2 * np.pi *u_**2 * d)
-        log2 = -(x-v*d)**2 / (2 * u_**2 * d)
+        m2 = l2 * d * (1- l1 * d) /np.sqrt( 2 * np.pi *up**2 * d)
+        log2 = -(x-v*d)**2 / (2 * up**2 * d)
 
         third = l1 * d * (1-l2*d) * psi2
 
         m4 = (1 - l1*d) * (1 - l2*d) / np.sqrt(2 * np.pi * sigma**2 *d)
-        log4 = -(x - mu * d)**2 / (2 * u_**2 * d)
+        log4 = -(x - mu * d)**2 / (2 * sigma**2 * d)
 
         return first + m2 * np.exp(log2) + third + m4 * np.exp(log4)
 
     def optimize_stock(param, l1 = None, a= None, b = None, d = 1/252, x = None):
         mu, sigma, l2, muV, SigmaV, e = param
-        return -np.sum(np.log(Density_stock(l1, a, b, mu, sigma, l2, muV, SigmaV, e, x, d)))
+        log_density = np.log(Density_stock(l1, a, b, mu, sigma, l2, muV, SigmaV, e, x, d))
+        inf_flag = np.isinf(log_density)
+        if sum(inf_flag) != 0:
+            warnings.warn("Warning: log_density contains invalid value given the current parameters, masking it with the minimal of valid values")
+            log_density[inf_flag] = min(log_density[~inf_flag])
+        return -np.sum(log_density)
 
     def callback_stock(Xi):
-        global Nfeval, l1, a_temp, b,  d, RET #TODO: change a_temp
+        global Nfeval, d, RET #TODO: change a_temp
         print('{0: 4d}     {1:.4f}     {2: .4f}    {3:.4f}    {4:.4f}    {5:.4f}    {6:.4f}    {7:.4f}'.format(Nfeval,
             Xi[0], Xi[1], Xi[2], Xi[3], Xi[4], Xi[5],
-            optimize_stock(Xi, x= RET,  l1= l1, a = a_temp, b = b, d= d)))
+            optimize_stock(Xi, x= RET,  l1= 98.1804, a = 5, b = 126.174, d= d)))
         Nfeval += 1
 
 
-    l1_temp, a_temp, b_temp, mu, sigma, l2, muV, sigmaV, e = [1] * 9
-    Test_DensityStock = Density_stock(l1_temp, a_temp, b_temp, mu, sigma, l2, muV, sigmaV, e, RET)
+    #l1_temp, a_temp, b_temp, mu, sigma, l2, muV, sigmaV, e = [1] * 9
+    #Test_DensityStock = Density_stock(l1_temp, a_temp, b_temp, mu, sigma, l2, muV, sigmaV, e, RET)
+    mu_hat, sigma_hat, l2, muV, sigmaV, e = [0.1, 0.3, 2, -0.1100612, 0.2, 0.18795189]
+    RET_point = np.array([RET[0]])
+    Point_DensityStock = Density_stock(98.1804, 5, 126.174, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET_point, d = 1/252)
 
+    # mu, sigma, l2, muV, SigmaV, e
     bounds = [(-1, 1), (0.01, 1), (0, None), (-1,1), (0.01, 1), (0, None)]
-    init = [0, 0.5, l1, 0, 0.5, 0.5]
+    #init = [0, 0.5, l1, 0.01, 0.5, 0.5]
+    init = [-0.123329, 0.202993, 4.8, 0.067659, 0.0179964, 1.79029]
     Nfeval = 1
     d = 1/252
-    res2 = minimize(optimize_stock, init, args=(l1, 1, b, d, RET), method='L-BFGS-B', options={'maxiter': 50000}, bounds=bounds,
+    res2 = minimize(optimize_stock, init, args=(98.1804, 5, 126.174, d, RET), method='Nelder-Mead', options={'maxiter': 5000}, bounds=bounds,
                    callback=callback_stock, tol=0.001)
+
+    # [Density Plot]
+    mu_hat, sigma_hat, l2, muV, sigmaV, e = [-0.123329, 0.202993, 2.3138, 0.067659, 0.0179964, 1.79029]
+    RET_grids = np.linspace(-0.15, 0.15, 100)
+    Eval_DensityStock = Density_stock(98.1804, 5, 126.174, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET_grids)
+    plt.plot(RET_grids, Eval_DensityStock)
+    plt.show()
+
 
     print('end')
