@@ -13,9 +13,9 @@ import os
 from utils import *
 
 
-def load_data(file_dir, start_idx = 0):
-    return_data = pd.read_excel(os.path.join(file_dir, 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0).iloc[start_idx:]
-    cet_data = pd.read_excel(os.path.join(file_dir, 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=1).iloc[start_idx:]
+def load_data(file_dir):
+    return_data = pd.read_excel(os.path.join(file_dir, 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0)
+    cet_data = pd.read_excel(os.path.join(file_dir, 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=1)
 
     B = cet_data['CET-1 ratio (phase-in)'].values
     J = np.tan(np.pi * 0.5 - np.pi * B) + 1 / np.tan(np.pi * (1 - B[0]))
@@ -33,8 +33,9 @@ def Callback_DensityJ(Xi):
     print('{0: 4d}     {1:.4f}     {2: .4f}    {3:.4f} '.format(Nfeval, Xi[0], Xi[1], optimize_DensityJ(Xi, a=a, H=H)))
     Nfeval += 1
 
-def KDE_estimate(fit_data, eval_data, bw_selection = 'silverman'):
-    KDE_model = KernelDensity(bandwidth=bw_selection).fit(fit_data.reshape(-1, 1))
+def KDE_estimate(fit_data, eval_data):
+    silverman_bw = 0.9 * min(np.std(fit_data), iqr(fit_data) / 1.34) * fit_data.shape[0] ** (-1 / 5)
+    KDE_model = KernelDensity(bandwidth=silverman_bw).fit(fit_data.reshape(-1, 1))
     log_density = KDE_model.score_samples(eval_data.reshape(-1, 1))
     return np.exp(log_density)
 
@@ -42,7 +43,7 @@ def KDE_estimate(fit_data, eval_data, bw_selection = 'silverman'):
 
 if __name__ == '__main__':
 
-    return_data, cet_data, B, J = load_data('../data', start_idx = 0)
+    return_data, cet_data, B, J = load_data('../data')
     Diff_J = np.diff(J)
 
     J_grids = np.linspace(-3, 3, 200).reshape(-1, 1)
@@ -81,12 +82,12 @@ if __name__ == '__main__':
                        callback = Callback_DensityJ, tol=0.001)
         print('lambda: %.4f, beta %.4f' % (res.x[0], res.x[1]))
         sorted_list.append([res.fun, *res.x, a])
+        if a ==1:
+            l1_a1, b_a1 = res.x
     sorted_list = sorted(sorted_list)
-    loss, l1, b, a = sorted_list[0]
+    loss, l1_min, b_min, a_min = sorted_list[0]
 
     # [Stock estimation]
-
-    #RET = pd.read_excel(os.path.join('../data', 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0)['Log-returns (without Dividends)'].values[997:2520]
     RET = pd.read_excel(os.path.join('../data', 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0)[
               'Log-returns (without Dividends)'].values[:2570]
     plt.plot(RET)
@@ -100,12 +101,6 @@ if __name__ == '__main__':
         log2 = (e * (x - v * d) + b * up ** 2 * d) ** 2 / ((2 * e * up)**2 *d)
 
         d_input = (e * (x - v * d ) + b * up ** 2 * d) / (e * up * np.sqrt(d))
-        #loglast_d = np.log(sc.pbdv(-a, d_input)[0])
-
-        #loglast_d = np.log(float(pcfd(-a, d_input)))
-        #inf_flag = np.isinf(loglast_d)
-        # return log_m1 + log_m2 + log1 + log2 + loglast_d #TODO: check large negative return -0.52 causing error
-
         final_add = [float(log_m1 + log_m2 + log1[i] + log2[i] + mp.log(pcfd(-a, d_input[i]))) for i in range(len(d_input))]
         return np.array(final_add)
 
@@ -116,9 +111,7 @@ if __name__ == '__main__':
 
 
         psi1 = np.exp(log_psi(x, v, up, a = a, b = b, d = d, e = e))
-        #print('v, up, psi1 is %.2f, %.2f, %.2f' %(v, up, np.sum(psi1)))
         psi2 = np.exp(log_psi(x, mu, sigma, a = a, b = b, d = d, e = e))
-        #print('mu, sigma, psi2 is %.2f, %.2f, %.2f' % (mu, sigma, np.sum(psi2)))
 
         first = l1 * l2 * d**2 * psi1
 
@@ -149,38 +142,31 @@ if __name__ == '__main__':
         Nfeval += 1
 
 
-    #param = [0.186287, 0.225406, 41.0965, 0.0113117, 0.0343969, 0.822461] #
-    param = [-0.0425323, 0.272093, 12.0023, -0.012407,  0.0649111, 0.0606179] #full length
-    mu_hat, sigma_hat, l2, muV, sigmaV, e = param
-    Point_DensityStock = Density_stock(l1, a, b, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET, d = 1/252)
-    print( np.sum(np.log(Point_DensityStock)), optimize_stock(param, l1=l1, a=a, b=b, d=1 / 252, x = RET))
 
-    # mu, sigma, l2, muV, SigmaV, e
-    # bounds = [(-1, 1), (0.01, 1), (0, None), (-1,1), (0.01, 1), (0, None)]
-    # init = [-0.123329, 0.202993, 4.8, 0.067659, 0.0179964, 1.79029]
-    # Nfeval, d = [1, 1/252]
-    # res2 = minimize(optimize_stock, init, args=(98.1804, 5, 126.174, d, RET), method='Nelder-Mead', options={'maxiter': 5000}, bounds=bounds,
-    #                callback=callback_stock, tol=0.001)
+    parama1, a1 = [[-0.0425323, 0.272093, 12.0023, -0.012407,  0.0649111, 0.0606179], 1] #full length, a = 1
+    parama_min, a_min = [[-0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438,  0.539438], 3]  # full length, a = 3
+    mu_hat, sigma_hat, l2, muV, sigmaV, e= parama_min
+    Point_DensityStock = Density_stock(l1_min, a_min, b_min, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET, d = 1/252)
+    print( np.sum(np.log(Point_DensityStock)), optimize_stock(parama_min, l1 = l1_min, a = a_min, b = b_min, d= 1/252, x = RET))
+
 
     # [Density Plot]
     RET_grids = np.linspace(-0.15, 0.15, 100)
-    Eval_DensityStock = Density_stock(l1, a, b, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET_grids)
-    #Data_DensityStock = KDE_estimate(RET, RET_grids)
+    Eval_Density_amin = Density_stock(l1_min, a_min, b_min, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET_grids)
+    Eval_Density_a1 = Density_stock(l1_a1, a1, b_a1, mu_hat, sigma_hat, l2, muV, sigmaV, e, RET_grids)
+    Data_DensityStock = KDE_estimate(RET, RET_grids)
 
-    #silverman_bw = 1.06 * np.std(RET) * RET.shape[0]**(-1/5)
+    # silverman_bw = 0.9 * min(np.std(RET), iqr(RET)/1.34) * RET.shape[0]**(-1/5)
+    # KDE_model = KernelDensity(bandwidth=silverman_bw, kernel = 'gaussian').fit(RET.reshape(-1, 1))
+    # log_density = KDE_model.score_samples(RET_grids.reshape(-1, 1))
+    # Data_DensityStock = np.exp(log_density)
 
-    #A = min(np.std(RET), iqr(RET)/1.34)
-    #silverman_bw = ((4 * A **5)/ (3 * RET.shape[0]))**(1/5)
-
-    silverman_bw = 0.9 * min(np.std(RET), iqr(RET)/1.34) * RET.shape[0]**(-1/5)
-    KDE_model = KernelDensity(bandwidth=silverman_bw, kernel = 'gaussian').fit(RET.reshape(-1, 1))
-    log_density = KDE_model.score_samples(RET_grids.reshape(-1, 1))
-    Data_DensityStock = np.exp(log_density)
-
-    plt.plot(RET_grids, Eval_DensityStock, label = 'Model Density')
+    plt.plot(RET_grids, Eval_Density_a1, label = 'Model Density (a=1)')
     plt.legend()
 
-        # TODO: check why RET_grids density doesn't match up
+    plt.plot(RET_grids, Eval_Density_amin, label='Model Density (a=3)')
+    plt.legend()
+
     plt.plot(RET_grids, Data_DensityStock, label = 'Data Density')
     plt.legend()
     plt.show()
