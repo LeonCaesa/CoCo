@@ -179,22 +179,23 @@ if __name__ == '__main__':
 
     # [CoCo Evaluation]
     from scipy.integrate import quad
-    from scipy.stats import hypsecant as sech
-    from scipy.special import erfc, expi
+    from scipy.special import erfc, expi, poch
     def CDensity_derivative(l1, b, a, x, t):
-        m1 = l1 * b ** a * x**(a-1) * np.exp( -l1 * t - b * x)/ sc.factorial(a-1)
-        m11 = l1 * t * (b * x)**a / (1 + a)
+        m1 = l1 * b ** a * np.power(x, a-1) * np.exp( -l1 * t - b * x)/ sc.factorial(a-1)
+        m11 = l1 * t * np.power(b * x, a)/ poch(1 + a, a)
         u1_input1 = np.array([])
         u1_input2 = np.linspace(2 + 1 / a, 3, a)
-        u1_input3 = l1 * t * (b * x / a) ** sc.special.poch(1+a, a)
-        first_u = np.array([float(hyper(u1_input1, u1_input2, i, maxterms=10 ** 6)) for i in u1_input3])
+        u1_input3 = l1 * t * np.power(b * x / a,  a)
+        #first_u = np.array([float(hyper(u1_input1, u1_input2, i, maxterms=10 ** 6)) for i in u1_input3])
+        first_u = float(hyper(u1_input1, u1_input2, u1_input3, maxterms=10 ** 6))
 
         m2 = l1 * t - 1
         u2_input1 = np.array([])
         u2_input2 = np.linspace(1 + 1 / a, 2, a)
-        u2_input3 = l1 * t * (b * x / a) ** a
-        second_u = np.array([float(hyper(u2_input1, u2_input2, i, maxterms=10 ** 6)) for i in u2_input3])
-        return m1 * m11 * first_u - m2 * second_u
+        u2_input3 = l1 * t * np.power(b * x / a,  a)
+        #second_u = np.array([float(hyper(u2_input1, u2_input2, i, maxterms=10 ** 6)) for i in u2_input3])
+        second_u = float(hyper(u2_input1, u2_input2, u2_input3, maxterms=10 ** 6))
+        return m1 * (m11 * first_u - m2 * second_u)
     def I1(l1, a, b, t):
         integrand = lambda y: 1- b*y/(l1 * a * t) * CDensity_derivative(l1, b, a, y, t)
         lower = 0
@@ -210,16 +211,19 @@ if __name__ == '__main__':
         c1 = 1 - np.exp(-l1 * t)
 
         int2_func = lambda y: CDensity_derivative(l1, b, a, y, t)
-        c2 = -quad(int2_func, 0, x + l1 * a * t /b)
+        #print(int2_func(np.array([5])))
+        c2 = -quad(int2_func, 0, x + l1 * a * t /b)[0]
 
         m3 = lambda s: I1(l1, a, b, t - s)
         input_CDensity = lambda s: x + l1 * a * s/ b
         input_I2 = lambda s: x + l1 * a * s/b
+
+        #print(I2(l1, a, b, 5, 5))
         int3_func = lambda s: m3(s) * (
             CDensity_derivative(l1, b, a, input_CDensity(s), t) -
-            b / a * np.exp(-l1 * s) - 1 / l1 * I2(s, input_I2(s))
+            b / a * np.exp(-l1 * s) - 1 / l1 * I2(l1, a, b, s, input_I2(s))
         )
-        c3 = quad(int3_func, 0, t)
+        c3 = quad(int3_func, 0, t)[0]
         return c1 + c2 + c3
 
     def E1(k1, xi1, t, u, t0 =0):
@@ -233,7 +237,7 @@ if __name__ == '__main__':
         # m21 = (np.sech(m2_input) - 1)/k1**2 * k1 * t0 + xi1 *
 
         m3_input = np.sqrt(2 * xi1**2 * (t-t0)**2)
-        m3 = np.sqrt(sech(m3_input))
+        m3 = np.sqrt(1/np.cosh(m3_input))
         return np.exp(log_c1) * m3
 
     def a_func (muV, SigmaV, case):
@@ -274,63 +278,92 @@ if __name__ == '__main__':
 
     def writedown_coco(r, K, T, l1, a, b, c,Jbar, M, w, k1, xi1, k2, xi2, l2, l30,  muV, SigmaV):
         m11 = K * np.exp( -r * T)
-        m12 = 1 - SupPr( l1, np.ceil(a), b, T, Jbar)
+
+        import time
+        start = time.time()
+        m12 = 1 - SupPr( l1, a, b, T, Jbar)
+        end = time.time()
+        print(end -start)
+
         c1 = m11 * m12
 
         c2 = 0
         for k in range(1, M+1):
-            c2 += c * np.exp ( -r * k * (T / M)) * (1 - SupPr( l1, np.ceil(a), b, k * T/M, Jbar))
+            c2 += c * np.exp ( -r * k * (T / M)) * (1 - SupPr( l1, a, b, k * T/M, Jbar))
 
         c3 = 0
         NN = 12 * T
         m31 = (1-w) * K
-        for j in range(1, NN+1):
+        for j in range(0, NN):
             m32 = np.exp(-r * T / NN * j)
             m33 = E1(k1, xi1, j * T/ NN, 1) * E2(k2, xi2, l2, l30, muV, SigmaV, j * T/NN, 1)
             m34 = SupPr(l1, a, b, (j+1) * (T / NN), Jbar) - SupPr(l1, a, b, j * (T / NN), Jbar)
             c3 += m31 * m32 * m33 * m34
         return c1 + c2 + c3
 
-    def psi1(p, a, b):
-        return (1 + p/b)**(-a) -1
+    def psi1(u, a, b):
+        return (1 + u/b)**(-a) -1
     def psi2(muV, sigmaV, u):
-        return np.exp(muV + sigmaV **2 * u**2 /2 -1)
-    def Q(p, q, r, sigma, l1, l2, a, b):
+        return np.exp(muV * u + sigmaV **2 * u**2 /2 -1)
+    def Q(p, q, r, sigma, l1, l2, a, b, muV, SigmaV):
         c1 = p * q
         c2 = (1-p) * r
         c3 = 0.5 * p * (1-p) * sigma**2
         c4 = l1 * (p * psi1(1, a, b) - psi1(p))
-        c5 = l2 * (p * psi2(1) - psi2(p))
+        c5 = l2 * (p * psi2(muV, SigmaV, 1) - psi2(muV, SigmaV, p))
         return c1 + c2  +c3 + c4 + c5
 
     #ToDo: check e, p
-    def equityconvert_coco(r, K, T, l1, a, b, c, e, p, Jbar, M, w, k1, xi1, k2, xi2, l2, l30, muV, SigmaV):
+    def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, k1, xi1, k2, xi2, l2, l30, muV, SigmaV, Sigma):
         m11 = K * np.exp(-r * T)
-        m12 = 1 - SupPr(l1, np.ceil(a), b, T, Jbar)
+        m12 = 1 - SupPr(l1, a, b, T, Jbar)
         c1 = m11 * m12
 
         c2 = 0
         for k in range(1, M + 1):
-            c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, np.ceil(a), b, k * T / M, Jbar))
+            c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
         c3 = 0
         NN = 12 * T
-        m31 = w * K
+        m31 = (1-w) * K
         for j in range(0, NN):
-            m32 = np.exp(Q(p, q, r, sigma, l1, l2, a, b) * T/NN *j)
-            m33 = E1(k1 + p * sigma * k1, xi1, j * T/NN, 1)
-            m34 = E2(k2, xi2, l2 * (1+psi2( np.ceil(p))), l30, muV + p * SigmaV**2, SigmaV, j * T/NN, 1)
-            m35 = SupPr(l1 * (1 + psi1( np.ceil(p), a, b)), np.ceil(a), b + e * p, (j +1) * T/NN, Jbar)
-            m36 = SupPr(l1 * (1 + psi1( np.ceil(p), a ,b)), np.ceil(a), b + e * p, j * T/NN, Jbar)
+
+            m32 = np.exp(Q(p, q, r, Sigma, l1, l2, a, b, muV, SigmaV) * T/NN *j)
+            m33 = E1(k1 + p * Sigma * k1, xi1, j * T/NN, 1)
+            m34 = E2(k2, xi2, l2 * (1+psi2(muV, SigmaV, p)), l30, muV + p * SigmaV**2, SigmaV, j * T/NN, 1)
+            m35 = SupPr(l1 * (1 + psi1( p, a, b)), np.ceil(a), b + e * p, (j +1) * T/NN, Jbar)
+            m36 = SupPr(l1 * (1 + psi1( p, a ,b)), np.ceil(a), b + e * p, j * T/NN, Jbar)
             c3 += m32 * m33 * m34 * m35 * m36
         c3 *= m31
         return c3
 
 
+    W = 0.10
+    C0 = 0.11
+    S0 = 150
+    K = 100
+    c = 6.75 / 2
+    w = 0.5
+    r = 0.0168
+    q = 0.02
+    T = 5
+    M = 2 * T
 
+    k1 = 0.09
+    xi1 = 0.001
+    k2 = 7.2
+    xi2 = 0.04
+    l30 = 0
 
+    Jbar = np.tan( np.pi * (1 - 2 *W)/2) + 1/ np.tan(np.pi * (1-C0))
 
+    param_a3, a3 = [[0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438, 0.539438], 3]  # full length, a = 3
+    mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = param_a3
 
+    import time
+    start = time.time()
+    wd_value = writedown_coco(r, K, T, l1_a3, a3, b_a3, c, Jbar, M, w, k1, xi1, k2, xi2, l2_a3, l30, muV_a3, sigmaV_a3)
+    end = time.time()
 
-
+    print(wd_value, end - start)
 
     print('end')
