@@ -1,9 +1,8 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.neighbors import KernelDensity
 from scipy.optimize import minimize
-from scipy.stats import iqr
+
 
 
 import os
@@ -19,7 +18,6 @@ def load_data(file_dir):
     J = np.tan(np.pi * 0.5 - np.pi * B) + 1 / np.tan(np.pi * (1 - B[0]))
     return return_data,  cet_data, B, J
 
-
 def Callback_RelaxJ(Xi):
     global Nfeval, H
     print('{0: 4d}     {1:.4f}     {2: .4f}    {3:.4f} '.format(Nfeval, Xi[0], Xi[1], optimize_RelaxJ(Xi, H=H)))
@@ -31,17 +29,12 @@ def Callback_DensityJ(Xi):
     Nfeval += 1
 
 def callback_stock(Xi):
-    global Nfeval, d, RET, l1, a, b
+    global Nfeval,  RET, l1_a3, a3, b_a3
     print('{0: 4d}     mu:{1:.4f}     sigma:{2: .4f}    l2:{3:.4f}    muV:{4:.4f}    sigmaV:{5:.4f}    e:{6:.4f}    loss:{7:.4f}'.format(Nfeval,
         Xi[0], Xi[1], Xi[2], Xi[3], Xi[4], Xi[5],
-        optimize_stock(Xi, x= RET,  l1= l1, a = a, b = b, d= d)))
+        optimize_stock(Xi, x= RET,  l1= l1_a3, a = a3, b = b_a3, d= 1/252)))
     Nfeval += 1
 
-def KDE_estimate(fit_data, eval_data):
-    silverman_bw = 0.9 * min(np.std(fit_data), iqr(fit_data) / 1.34) * fit_data.shape[0] ** (-1 / 5)
-    KDE_model = KernelDensity(bandwidth=silverman_bw).fit(fit_data.reshape(-1, 1))
-    log_density = KDE_model.score_samples(eval_data.reshape(-1, 1))
-    return np.exp(log_density)
 
 
 
@@ -72,7 +65,7 @@ if __name__ == '__main__':
     plt.legend()
     plt.show()
 
-    # [Optimization]
+    # [1. Latent J Optimization]
     l, b, T = [1, 1, 1/4]
     Test_RelaxJ = Density_RelaxJ(l, b, T, H)
     Test_DensityJ = Density_J(l, 1, b, T, H)
@@ -91,7 +84,7 @@ if __name__ == '__main__':
     sorted_list = sorted(sorted_list)
     loss, l1_a3, b_a3, a3 = sorted_list[0]
 
-    # [Stock estimation]
+    # [2. Stock optimization]
     RET = pd.read_excel(os.path.join('../data', 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0)[
               'Log-returns (without Dividends)'].values[:2570]
     plt.plot(RET)
@@ -107,6 +100,13 @@ if __name__ == '__main__':
     Point_DensityStock = Density_stock(l1_a3, a3, b_a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, RET, d = 1/252)
     print( np.sum(np.log(Point_DensityStock)), optimize_stock(param_a3, l1=l1_a3, a=a3, b=b_a3, d=1/252, x=RET))
 
+
+    #mu, sigma, l2, muV, SigmaV, e = param
+    bounds = [(-1, 1), (0, 1), (0, None), (-1, 1), (0, 1), (0, None)]
+    #init, Nfeval = [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 1]
+    init, Nfeval = [param_a3, 1]
+    stock_res = minimize(optimize_stock, init, args=(l1_a3, a3, b_a3, 1/252, RET), method='Nelder-Mead', 
+                        options={'maxiter': 100}, bounds=bounds, callback = callback_stock, tol=0.001)
 
     # [Density Plot]
     RET_grids = np.linspace(-0.15, 0.15, 100)

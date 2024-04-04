@@ -257,3 +257,12 @@ def optimize_stock(param, l1 = None, a= None, b = None, d = 1/252, x = None):
         log_density[inf_flag] = min(log_density[~inf_flag])
     return -np.sum(log_density)
 
+
+
+from sklearn.neighbors import KernelDensity
+from scipy.stats import iqr
+def KDE_estimate(fit_data, eval_data):
+    silverman_bw = 0.9 * min(np.std(fit_data), iqr(fit_data) / 1.34) * fit_data.shape[0] ** (-1 / 5)
+    KDE_model = KernelDensity(bandwidth=silverman_bw).fit(fit_data.reshape(-1, 1))
+    log_density = KDE_model.score_samples(eval_data.reshape(-1, 1))
+    return np.exp(log_density)
