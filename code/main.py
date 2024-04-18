@@ -10,11 +10,11 @@ import time
 from utils import *
 
 
-def load_data(file_dir):
-    return_data = pd.read_excel(os.path.join(file_dir, 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0)
-    cet_data = pd.read_excel(os.path.join(file_dir, 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=1)
+def load_data(file_dir, file_name):
+    return_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=0)
+    cet_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=1)
 
-    B = cet_data['CET-1 ratio (phase-in)'].values
+    B = cet_data['CET-1 ratio (phase-in)'].values/100
     J = np.tan(np.pi * 0.5 - np.pi * B) + 1 / np.tan(np.pi * (1 - B[0]))
     return return_data,  cet_data, B, J
 
@@ -39,8 +39,11 @@ def callback_stock(Xi):
 
 
 if __name__ == '__main__':
+    file_name = 'Lloyds_Data_13-23.xlsx'
+    #file_name = 'Credit_Suisse_Data_13-23.xlsx'
+    #file_name = 'China_Construction_Bank_Data_13-23.xlsx'
 
-    return_data, cet_data, B, J = load_data('../data')
+    return_data, cet_data, B, J = load_data('../data', file_name)
     Diff_J = np.diff(J)
 
     J_grids = np.linspace(-3, 3, 200).reshape(-1, 1)
@@ -57,7 +60,7 @@ if __name__ == '__main__':
     plt.legend()
 
     ax2 = fig.add_subplot(312)
-    ax2.plot(B, label = 'B', color = 'red')
+    ax2.plot(B, label='B', color = 'red')
     plt.legend()
 
     ax3 = fig.add_subplot(313)
@@ -82,42 +85,53 @@ if __name__ == '__main__':
         if a ==1:
             l1_a1, b_a1 = res.x
     sorted_list = sorted(sorted_list)
+    param_table = pd.DataFrame(sorted_list, columns= ['loss', 'l1', 'b', 'a'])
+    param_table.to_csv('../param/J_' + file_name.split('.')[0] + '.csv', index = False)
     loss, l1_a3, b_a3, a3 = sorted_list[0]
 
     # [2. Stock optimization]
-    RET = pd.read_excel(os.path.join('../data', 'Credit_Suisse_Data_13-23.xlsx'), sheet_name=0)[
-              'Log-returns (without Dividends)'].values[:2570]
+    if file_name == 'Credit_Suisse_Data_13-23.xlsx':
+        RET = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)[
+                 'Log-returns (without Dividends)'].values[:2570]
+    else:
+        RET = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)['Log-returns without dividends'].values
     plt.plot(RET)
     plt.show()
 
     param_a1, a1 = [[-0.0425323, 0.272093, 12.0023, -0.012407,  0.0649111, 0.0606179], 1] #full length, a = 1
     mu_a1, sigma_a1, l2_a1, muV_a1, sigmaV_a1, e_a1 = param_a1
-    Point_DensityStock = Density_stock(l1_a1, a1, b_a1, mu_a1, sigma_a1, l2_a1, muV_a1, sigmaV_a1, e_a1, RET, d=1 / 252)
+    Point_DensityStock = Density_stock(l1_a1, a1, b_a1, mu_a1, sigma_a1, l2_a1, muV_a1, sigmaV_a1, e_a1, RET, d = 1/ 252)
     print(np.sum(np.log(Point_DensityStock)), optimize_stock(param_a1, l1=l1_a1, a=a1, b=b_a1, d=1 / 252, x=RET))
 
-    param_a3, a3 = [[0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438,  0.539438], 3]  # full length, a = 3
+    param_a3, a3 = [[0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438,  0.539438], a3]  # full length, a = 3
     mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = param_a3
     Point_DensityStock = Density_stock(l1_a3, a3, b_a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, RET, d = 1/252)
     print( np.sum(np.log(Point_DensityStock)), optimize_stock(param_a3, l1=l1_a3, a=a3, b=b_a3, d=1/252, x=RET))
 
 
     #mu, sigma, l2, muV, SigmaV, e = param
-    bounds = [(-1, 1), (0, 1), (0, None), (-1, 1), (0, 1), (0, None)]
-    #init, Nfeval = [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 1]
-    init, Nfeval = [param_a3, 1]
-    stock_res = minimize(optimize_stock, init, args=(l1_a3, a3, b_a3, 1/252, RET), method='Nelder-Mead', 
-                        options={'maxiter': 100}, bounds=bounds, callback = callback_stock, tol=0.001)
+    # bounds = [(-1, 1), (0, 1), (0, None), (-1, 1), (0, 1), (0, None)]
+    # #init, Nfeval = [[0.1, 0.1, 0.1, 0.1, 0.1, 0.1], 1]
+    # init, Nfeval = [param_a3, 1]
+    # stock_res = minimize(optimize_stock, init, args=(l1_a3, a3, b_a3, 1/252, RET), method='Nelder-Mead',
+    #                     options={'maxiter': 100}, bounds=bounds, callback = callback_stock, tol=0.001)
+    # mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = stock_res.x
+    # stock_param = pd.DataFrame([stock_res.fun, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3], index = ['loss', 'l1', 'b', 'a', 'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'e']).T
+    # stock_param.to_csv('../param/Stock_' + file_name.split('.')[0] + '.csv', index = False)
+
+    stock_param = pd.read_csv('../param/Stock_' + file_name.split('.')[0] + '.csv')
+    loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = list(stock_param.values.squeeze())
 
     # [Density Plot]
     RET_grids = np.linspace(-0.15, 0.15, 100)
-    Eval_Density_a1 = Density_stock(l1_a1, a1, b_a1, mu_a1, sigma_a1, l2_a1, muV_a1, sigmaV_a1, e_a1, RET_grids)
+    #Eval_Density_a1 = Density_stock(l1_a1, a1, b_a1, mu_a1, sigma_a1, l2_a1, muV_a1, sigmaV_a1, e_a1, RET_grids)
     Eval_Density_a3 = Density_stock(l1_a3, a3, b_a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, RET_grids)
     Data_DensityStock = KDE_estimate(RET, RET_grids)
 
-    plt.plot(RET_grids, Eval_Density_a1, label = 'Model Density (a=1)')
-    plt.legend()
+    # plt.plot(RET_grids, Eval_Density_a1, label = 'Model Density (a=1)')
+    # plt.legend()
 
-    plt.plot(RET_grids, Eval_Density_a3, label='Model Density (a=3)')
+    plt.plot(RET_grids, Eval_Density_a3, label = 'Model Density (a=3)')
     plt.legend()
 
     plt.plot(RET_grids, Data_DensityStock, label = 'Data Density')

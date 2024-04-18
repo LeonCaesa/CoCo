@@ -63,7 +63,7 @@ def SupPr(l1, a, b, t, x):
     return c1 + c2 + c3
 
 
-def E1(k1, xi1, t, u, t0=0):
+def E1(k1, xi1, t, u, t0=0): #ToDo: k1, xi1 needs optimization
     if t == 0:
         return 1
     m11 = k1 ** 2 * (t - t0) / (2 * xi1 ** 2)
@@ -104,7 +104,7 @@ def a_func(muV, SigmaV, case):
         return 0.5 * erfc(numerator / denominator)
 
 
-def E2(k2, xi2, l2, l30, muV, SigmaV, t, u, t0=0):
+def E2(k2, xi2, l2, l30, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l30 needs optimization
     if t == 0:
         return 1
     m11 = -u * l30
