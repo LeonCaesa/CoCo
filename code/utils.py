@@ -5,7 +5,7 @@ from scipy.special import erfc, expi, poch
 import mpmath as mp
 from mpmath import hyper, pcfd
 import warnings
-
+import pickle
 # [CoCo Evaluation]
 def CDensity_derivative(l1, b, a, x, t):
     m1 = l1 * b ** a * np.power(x, a - 1) * np.exp(-l1 * t - b * x) / sc.factorial(a - 1)
@@ -63,22 +63,41 @@ def SupPr(l1, a, b, t, x):
     return c1 + c2 + c3
 
 
-def E1(k1, xi1, t, u, t0=0): #ToDo: k1, xi1 needs optimization
+def SupPr_Approx(l1, b, t, x, a =3):
+    with open('./SupPr.pkl', 'rb') as inp:
+        spline = pickle.load(inp)
+    return spline(l1, b, t, x)
+
+
+def CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, SigmaV, t, l31r, t0=0):
+    const = E(k1, xi1, k2, xi2, l2, l32, muV, SigmaV, t, 1, l31r, t0)
+
+    return -np.log(const) / (t - t0)
+
+def E(k1, xi1, k2, xi2, l2, l32, muV, SigmaV, t, u, l31r, t0=0):
+
+    return E1(k1, xi1, t, u, t0, l31r) * E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0)
+
+def E1(k1, xi1, t, u, t0=0, l31r = 0):
+
     if t == 0:
         return 1
+    if t0 == 0:
+        l31r = 0
     m11 = k1 ** 2 * (t - t0) / (2 * xi1 ** 2)
     m12_input = np.sqrt(2 * xi1 ** 2 * (t - t0) ** 2 * u)
     m12 = np.tanh(m12_input) / m12_input - 1
     log_c1 = m11 * m12
 
-    # ToDo: t0 !=0
-    # m2_input = 2 * k1**2 * (t-t0)**2 * u
-    # m21 = (np.sech(m2_input) - 1)/k1**2 * k1 * t0 + xi1 *
+    m2_input = np.sqrt(2 * xi1 ** 2 * (t - t0) ** 2 * u)
+    m2 = k1 * 1/np.cosh(m2_input)/xi1**2
+    c2 = - l31r**2 * np.sqrt(u) * np.tanh(m2_input)/ np.sqrt(2 * xi1 **2)
+    add2 = m2 * l31r + c2
 
-    # m3_input = np.sqrt(2 * xi1**2 * (t-t0)**2)
+
     m3_input = np.sqrt(2 * xi1 ** 2 * (t - t0) ** 2 * u)
     m3 = np.sqrt(1 / np.cosh(m3_input))
-    return np.exp(log_c1) * m3
+    return (np.exp(log_c1 + add2)) * m3
 
 
 def a_func(muV, SigmaV, case):
@@ -104,10 +123,10 @@ def a_func(muV, SigmaV, case):
         return 0.5 * erfc(numerator / denominator)
 
 
-def E2(k2, xi2, l2, l30, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l30 needs optimization
+def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs optimization
     if t == 0:
         return 1
-    m11 = -u * l30
+    m11 = -u * l32
     m12 = 1 - np.exp(-k2 * (t - t0))
     c1 = - m11 * m12 / k2
 
@@ -120,7 +139,7 @@ def E2(k2, xi2, l2, l30, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l30 needs opt
     c3 = -l2 * (t - t0)
     return np.exp(c1 + c2 + c3)
 
-def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, k1, xi1, k2, xi2, l2, l30, muV, SigmaV, Sigma):
+def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma):
     m11 = K * np.exp(-r * T)
     m12 = 1 - SupPr(l1, a, b, T, Jbar)
     c1 = m11 * m12
@@ -141,14 +160,14 @@ def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, k1, xi1, k2, x
     for j in range(0, NN):
         m32 = np.exp(- Q(p, q, r, Sigma, l1, l2, a, b, e, muV, SigmaV) * T/NN *j)
         m33 = E1(k_tilde, xi1,  j * T/NN, 1)
-        m34 = E2(k2, xi2, l2_tilde, l30, muV_tilde, SigmaV, j * T/NN, 1)
+        m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, j * T/NN, 1)
         m35 = SupPr(l1_tilde, a, b + e * p, (j + 1) * T/NN, Jbar)
         m36 = SupPr(l1_tilde, a, b + e * p, j * T/NN, Jbar)
         c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
 
     return c1 + c2 + c3
 
-def writedown_coco(r, K, T, l1, a, b, c, Jbar, M, w, k1, xi1, k2, xi2, l2, l30, muV, SigmaV):
+def writedown_coco(r, K, T, l1, a, b, c, Jbar, M, w, k1, xi1, k2, xi2, l2, l32, muV, SigmaV):
     m11 = K * np.exp(-r * T)
     m12 = 1 - SupPr(l1, a, b, T, Jbar)
     c1 = m11 * m12
@@ -163,7 +182,7 @@ def writedown_coco(r, K, T, l1, a, b, c, Jbar, M, w, k1, xi1, k2, xi2, l2, l30, 
 
     for j in range(0, NN):
         m32 = np.exp(-r * T / NN * j)
-        m33 = E1(k1, xi1, j * T / NN, 1) * E2(k2, xi2, l2, l30, muV, SigmaV, j * T / NN, 1)
+        m33 = E1(k1, xi1, j * T / NN, 1) * E2(k2, xi2, l2, l32, muV, SigmaV, j * T / NN, 1)
         m34 = SupPr(l1, a, b, (j + 1) * (T / NN), Jbar) - SupPr(l1, a, b, j * (T / NN), Jbar)
         c3 += m31 * m32 * m33 * m34
     return c1 + c2 + c3

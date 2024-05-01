@@ -29,14 +29,20 @@ def Callback_DensityJ(Xi):
     Nfeval += 1
 
 def callback_stock(Xi):
-    global Nfeval,  RET, l1_a3, a3, b_a3
+    global Nfeval, RET, l1_a3, a3, b_a3
     print('{0: 4d}     mu:{1:.4f}     sigma:{2: .4f}    l2:{3:.4f}    muV:{4:.4f}    sigmaV:{5:.4f}    e:{6:.4f}    loss:{7:.4f}'.format(Nfeval,
         Xi[0], Xi[1], Xi[2], Xi[3], Xi[4], Xi[5],
         optimize_stock(Xi, x= RET,  l1= l1_a3, a = a3, b = b_a3, d= 1/252)))
     Nfeval += 1
 
-
-
+def Callback_CDS(Xi):
+    global Nfeval, l2_a3, muV_a3, sigmaV_a3, cds_values#, t_cds, T_cds
+    print(
+        '{0: 4d}     k1:{1:.4f}     xi1:{2: .4f}    k2:{3:.4f}    xi2:{4:.4f}    l31r:{5:.4f}    l32:{6:.4f}    loss:{7:.4f}'.format(
+            Nfeval,
+            Xi[0], Xi[1], Xi[2], Xi[3], Xi[4], Xi[5], optimize_cds(Xi, l2_a3, muV_a3, sigmaV_a3, 5, 0, cds_values
+                         )))
+    Nfeval += 1
 
 if __name__ == '__main__':
     file_name = 'Lloyds_Data_13-23.xlsx'
@@ -86,7 +92,7 @@ if __name__ == '__main__':
             l1_a1, b_a1 = res.x
     sorted_list = sorted(sorted_list)
     param_table = pd.DataFrame(sorted_list, columns= ['loss', 'l1', 'b', 'a'])
-    param_table.to_csv('../param/J_' + file_name.split('.')[0] + '.csv', index = False)
+    #param_table.to_csv('../param/J_' + file_name.split('.')[0] + '.csv', index = False)
     loss, l1_a3, b_a3, a3 = sorted_list[0]
 
     # [2. Stock optimization]
@@ -118,6 +124,9 @@ if __name__ == '__main__':
     # mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = stock_res.x
     # stock_param = pd.DataFrame([stock_res.fun, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3], index = ['loss', 'l1', 'b', 'a', 'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'e']).T
     # stock_param.to_csv('../param/Stock_' + file_name.split('.')[0] + '.csv', index = False)
+
+
+
 
     stock_param = pd.read_csv('../param/Stock_' + file_name.split('.')[0] + '.csv')
     loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = list(stock_param.values.squeeze())
@@ -156,11 +165,35 @@ if __name__ == '__main__':
     xi1 = 0.001
     k2 = 7.2
     xi2 = 0.04
-    l30 = 0
+
+    l32 = 0.1
+    l31r = 0.1
 
     Jbar = np.tan( np.pi * (1 - 2 *W)/2) + 1/ np.tan(np.pi * (1-C0))
     param_a3, a3 = [[0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438, 0.539438], 3]  # full length, a = 3
     mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = param_a3
+
+    fiveyear_cds = pd.read_csv('../data/CSGN5YEUAM=R Overview.csv').set_index('Date')['Price']
+    fiveyear_cds = fiveyear_cds.apply(lambda x: x.replace(',', '')).astype(float)/100
+    fiveyear_cds.index = pd.to_datetime(fiveyear_cds.index)
+    fiveyear_cds = fiveyear_cds.sort_index()
+    date_flag = fiveyear_cds.index.isin(pd.date_range(start='3/1/2023', end='3/17/2023'))
+    cds_values = fiveyear_cds.values[date_flag]
+    date_values = fiveyear_cds.index[date_flag]
+
+    def optimize_cds(param, l2=None, muV=None, sigmaV=None, T = None , t0 = None, cds_price = None):
+        k1, xi1, k2, xi2, l31r, l32 = param
+        model_price = CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, sigmaV, T, l31r, t0)
+        loss = np.abs(cds_price - model_price)/ cds_price
+        return np.sum(loss)
+
+    init, Nfeval = [[1.5, 0.5, 1.5, 0.5, 0.5, 0.5], 1]
+    bounds = [(0, 5), (0.01, 2), (1, 10), (0.01, 2), (0.1, 10), (0.1, 10)]
+    #t_cds = np.array([ (i - date_values[0]).days/252 for i in date_values])
+    #T_cds = np.array([i + 5 for i in t_cds])
+    res = minimize(optimize_cds, init, args=(l2_a3, muV_a3, sigmaV_a3, 5, 0, cds_values), method='Nelder-Mead', options={'maxiter': 100},
+                   callback = Callback_CDS, bounds=bounds, tol=0.001)
+    k1, xi1, k2, xi2, l31r, l32 = res.x
 
 
     # start = time.time()
