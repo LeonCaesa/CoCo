@@ -3,20 +3,12 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-
-
 import os
 import time
 from utils import *
 
 
-def load_data(file_dir, file_name):
-    return_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=0)
-    cet_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=1)
 
-    B = cet_data['CET-1 ratio (phase-in)'].values/100
-    J = np.tan(np.pi * 0.5 - np.pi * B) + 1 / np.tan(np.pi * (1 - B[0]))
-    return return_data,  cet_data, B, J
 
 def Callback_RelaxJ(Xi):
     global Nfeval, H
@@ -38,26 +30,29 @@ def callback_stock(Xi):
 def Callback_CDS(Xi):
     global Nfeval, l2_a3, muV_a3, sigmaV_a3, cds_values#, t_cds, T_cds
     print(
-        '{0: 4d}     k1:{1:.4f}     xi1:{2: .4f}    k2:{3:.4f}    xi2:{4:.4f}    l31r:{5:.4f}    l32:{6:.4f}    loss:{7:.4f}'.format(
+        '{0: 4d}     k1:{1:.4f}     xi1:{2: .4f}    k2:{3:.4f}    xi2:{4:.4f}     l32:{5:.4f}    loss:{6:.4f}'.format(
             Nfeval,
-            Xi[0], Xi[1], Xi[2], Xi[3], Xi[4], Xi[5], optimize_cds(Xi, l2_a3, muV_a3, sigmaV_a3, 5, 0, cds_values
+            Xi[0], Xi[1], Xi[2], Xi[3], Xi[4], optimize_cds(Xi, l2_a3, muV_a3, sigmaV_a3, 5, 0, cds_values
                          )))
     Nfeval += 1
 
 if __name__ == '__main__':
-    file_name = 'Lloyds_Data_13-23.xlsx'
-    #file_name = 'Credit_Suisse_Data_13-23.xlsx'
+    #file_name = 'Lloyds_Data_13-23.xlsx'
+    file_name = 'Credit_Suisse_Data_13-23.xlsx'
     #file_name = 'China_Construction_Bank_Data_13-23.xlsx'
+    save_fig = False
 
-    return_data, cet_data, B, J = load_data('../data', file_name)
+    return_data, cet_data, B, J, B_date = load_data('../data', file_name)
     Diff_J = np.diff(J)
 
     J_grids = np.linspace(-3, 3, 200).reshape(-1, 1)
-    H_grids = np.linspace(1.1, 1.25, 200).reshape(-1, 1)
+
 
     PJ_grids = KDE_estimate(Diff_J, J_grids)
     H = Diff_J - min(Diff_J) + 0.01
-    PH_grids = KDE_estimate(H, H_grids)
+
+    # H_grids = np.linspace(1.1, 1.25, 200).reshape(-1, 1)
+    # PH_grids = KDE_estimate(H, H_grids)
 
     # [Plotting]
     fig = plt.figure(figsize=(6, 12))
@@ -88,20 +83,51 @@ if __name__ == '__main__':
                        callback = Callback_DensityJ, tol=0.001)
         print('lambda: %.4f, beta %.4f' % (res.x[0], res.x[1]))
         sorted_list.append([res.fun, *res.x, a])
-        if a ==1:
+        if a == 1:
             l1_a1, b_a1 = res.x
     sorted_list = sorted(sorted_list)
     param_table = pd.DataFrame(sorted_list, columns= ['loss', 'l1', 'b', 'a'])
     #param_table.to_csv('../param/J_' + file_name.split('.')[0] + '.csv', index = False)
     loss, l1_a3, b_a3, a3 = sorted_list[0]
 
+    # [Density Plot]
+    H_grids = np.linspace(0, 1, 100)
+    # Eval_Density_a1 = Density_stock(l1_a1, a1, b_a1, mu_a1, sigma_a1, l2_a1, muV_a1, sigmaV_a1, e_a1, RET_grids)
+    Eval_JDensity_a3 = np.exp(Density_J(l1_a3, int(a3), b_a3, T, H_grids))
+    Data_JDensity_data = KDE_estimate(H, H_grids)
+
+    plt.plot(H_grids, Data_JDensity_data, label='Kernel')
+    plt.plot(H_grids, Eval_JDensity_a3, linestyle='--', label='Fitted')
+    plt.legend()
+    if save_fig:
+        plt.savefig('../figure/Hdensity_'+ file_name.split('_')[0]+'.jpg', dpi=600)
+    plt.show()
+
     # [2. Stock optimization]
     if file_name == 'Credit_Suisse_Data_13-23.xlsx':
-        RET = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)[
-                 'Log-returns (without Dividends)'].values[:2570]
+        RET_data = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)
+        S_name = 'Price or Bid/Ask Average'
+        RET = RET_data['Log-returns (without Dividends)'].values[:2570]
     else:
-        RET = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)['Log-returns without dividends'].values
-    plt.plot(RET)
+        RET_data = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)
+        S_name = 'Price or Bid/Ask Average'
+        RET = RET_data['Log-returns without dividends'].values
+
+    # Figure to be added
+    S_data = RET_data[[S_name, 'Names Date']]
+    S_data.columns = ['S', 'Date']
+    S_data = S_data.set_index('Date')
+    S_data.plot(label = 'S')
+    if save_fig:
+        plt.savefig('../figure/S_'+ file_name.split('_')[0]+'.jpg', dpi=600)
+    plt.show()
+
+
+    # Figure to be added
+    plt.plot(pd.to_datetime(B_date), B, label = 'B')
+    plt.legend()
+    if save_fig:
+        plt.savefig('../figure/B_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
 
     param_a1, a1 = [[-0.0425323, 0.272093, 12.0023, -0.012407,  0.0649111, 0.0606179], 1] #full length, a = 1
@@ -125,9 +151,6 @@ if __name__ == '__main__':
     # stock_param = pd.DataFrame([stock_res.fun, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3], index = ['loss', 'l1', 'b', 'a', 'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'e']).T
     # stock_param.to_csv('../param/Stock_' + file_name.split('.')[0] + '.csv', index = False)
 
-
-
-
     stock_param = pd.read_csv('../param/Stock_' + file_name.split('.')[0] + '.csv')
     loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = list(stock_param.values.squeeze())
 
@@ -140,18 +163,21 @@ if __name__ == '__main__':
     # plt.plot(RET_grids, Eval_Density_a1, label = 'Model Density (a=1)')
     # plt.legend()
 
-    plt.plot(RET_grids, Eval_Density_a3, label = 'Model Density (a=3)')
-    plt.legend()
 
-    plt.plot(RET_grids, Data_DensityStock, label = 'Data Density')
+    plt.plot(RET_grids, Data_DensityStock, label='Kernel')
+    plt.plot(RET_grids, Eval_Density_a3, linestyle='--', label='Fitted')
     plt.legend()
+    if save_fig:
+       plt.savefig('../figure/Sdensity_'+ file_name.split('_')[0]+'.jpg', dpi=600)
     plt.show()
 
 
-
     # [Evaluation part]
-    W = 0.10
-    C0 = 0.11
+    # LLyolds: 2001 - 2011, Quarterly CET1 ratio, K, r(term structure), W(B_) = 5%, T,
+
+    W = 0.05 # for llyods
+    C0 = 6.3/100 # for llyods
+    wbar = 1 # for llyods
     S0 = 150
     K = 100
     c = 6.75 / 2
@@ -169,41 +195,85 @@ if __name__ == '__main__':
     l32 = 0.1
     l31r = 0.1
 
-    Jbar = np.tan( np.pi * (1 - 2 *W)/2) + 1/ np.tan(np.pi * (1-C0))
+
+    # Question: how is B bar determined? Is C0 the initial CET1 ratio?, range of Jbar for spline grid?
+
+    Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
     param_a3, a3 = [[0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438, 0.539438], 3]  # full length, a = 3
     mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = param_a3
 
-    fiveyear_cds = pd.read_csv('../data/CSGN5YEUAM=R Overview.csv').set_index('Date')['Price']
-    fiveyear_cds = fiveyear_cds.apply(lambda x: x.replace(',', '')).astype(float)/100
-    fiveyear_cds.index = pd.to_datetime(fiveyear_cds.index)
-    fiveyear_cds = fiveyear_cds.sort_index()
-    date_flag = fiveyear_cds.index.isin(pd.date_range(start='3/1/2023', end='3/17/2023'))
-    cds_values = fiveyear_cds.values[date_flag]
-    date_values = fiveyear_cds.index[date_flag]
+    oneyear_cds = pd.read_csv('../data/CSGN1YEUAM=R Overview.csv').set_index('Date')#['Price']
+    oneyear_cds['T'] = 1
+    fiveyear_cds = pd.read_csv('../data/CSGN5YEUAM=R Overview.csv').set_index('Date')  # ['Price']
+    fiveyear_cds['T'] = 5
+    tenyear_cds = pd.read_csv('../data/CSGN10YEUAM=R Overview.csv').set_index('Date')#['Price']
+    tenyear_cds['T'] = 10
 
+
+    cds_data = pd.concat([oneyear_cds, tenyear_cds, fiveyear_cds])[['Price', 'T']]
+    cds_data['Price'] = cds_data['Price'].apply(lambda x: x.replace(',', '')).astype(float)/100
+    cds_data.index = pd.to_datetime(cds_data.index)
+    cds_data = cds_data.sort_index()
+    date_flag = cds_data.index.isin(pd.date_range(start='3/1/2023', end='3/17/2023'))
+    cds_values = cds_data['Price'].values[date_flag]
+    date_values = cds_data.index[date_flag]
+    mat_values = cds_data['T'].values[date_flag]
+
+
+    import seaborn as sns
+    plt.figure(figsize = (4, 4))
+    cds_data['T'] = cds_data['T'].astype(str)
+    sns.scatterplot(data=cds_data[date_flag].sort_values('T'), x='Date', y='Price', hue='T', style='T')
+    #plt.legend(loc = 'upper left')
+    plt.ylabel('CDS Price')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    if save_fig:
+        plt.savefig('../figure/CDS_'+ file_name.split('_')[0]+'.jpg', dpi=600)
+    plt.show()
     def optimize_cds(param, l2=None, muV=None, sigmaV=None, T = None , t0 = None, cds_price = None):
-        k1, xi1, k2, xi2, l31r, l32 = param
-        model_price = CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, sigmaV, T, l31r, t0)
+        #k1, xi1, k2, xi2, l31r, l32 = param
+        #model_price = CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, sigmaV, T, l31r, t0)
+        k1, xi1, k2, xi2, l32 = param
+        model_price = CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, sigmaV, T, 0, t0)
         loss = np.abs(cds_price - model_price)/ cds_price
-        return np.sum(loss)
+        return np.mean(loss)
 
-    init, Nfeval = [[1.5, 0.5, 1.5, 0.5, 0.5, 0.5], 1]
-    bounds = [(0, 5), (0.01, 2), (1, 10), (0.01, 2), (0.1, 10), (0.1, 10)]
+    #k1, xi1, k2, xi2, l31r, l32
+    init, Nfeval = [[1.5, 0.5, 1.5, 0.5, 0.5], 1]
+    bounds = [(0, 5), (0.01, 2), (1, 10), (0.01, 2), (0.1, 10)]
     #t_cds = np.array([ (i - date_values[0]).days/252 for i in date_values])
     #T_cds = np.array([i + 5 for i in t_cds])
-    res = minimize(optimize_cds, init, args=(l2_a3, muV_a3, sigmaV_a3, 5, 0, cds_values), method='Nelder-Mead', options={'maxiter': 100},
+    res = minimize(optimize_cds, init, args=(l2_a3, muV_a3, sigmaV_a3, mat_values, 0, cds_values), method='Nelder-Mead', options={'maxiter': 100},
                    callback = Callback_CDS, bounds=bounds, tol=0.001)
-    k1, xi1, k2, xi2, l31r, l32 = res.x
+    k1, xi1, k2, xi2, l32 = res.x
 
 
-    # start = time.time()
-    # wd_value = writedown_coco(r, K, T, l1_a3, a3, b_a3, c, Jbar, M, w, k1, xi1, k2, xi2, l2_a3, l30, muV_a3, sigmaV_a3)
-    # end = time.time()
+    def optimize_wdcoco(param, r= None, K = None, T = None, l1_a3= None, a3 = None, b_a3 = None, c = None,
+                        Jbar = None, M = None,  k1 = None, xi1 = None, k2= None, xi2 = None, l2_a3 = None,
+                        l32 = None, muV_a3 = None, sigmaV_a3 = None, coco_price = None):
+        w, w_bar, p = param
+        model_price =writedown_coco(r, K, T, l1_a3, a3, b_a3, c,
+                                    Jbar, M, w, k1, xi1, k2, xi2,
+                                    l2_a3, l32, muV_a3, sigmaV_a3)
+        loss = np.abs(model_price - coco_price)/ coco_price
+        return np.mean(loss)
+
+
+    init, Nfeval = [[0.3, 0.3, 0.3], 1]
+    bounds = [(0, 1), (0, 1), (0, 1)]
+    res = minimize(optimize_wdcoco, init, args=(l2_a3, muV_a3, sigmaV_a3, mat_values, 0, cds_values), method='Nelder-Mead', options={'maxiter': 100},
+                   callback = None, bounds=bounds, tol=0.001)
+
+
+    start = time.time()
+    wd_value = writedown_coco(r, K, T, l1_a3, a3, b_a3, c, Jbar, M, w, wbar, k1, xi1, k2, xi2, l2_a3, l32, muV_a3, sigmaV_a3)
+    end = time.time()
     # print(wd_value, end - start)
 
     p = 0.6
     start = time.time()
-    ec_value = equityconvert_coco(r, K, T, l1_a3, a3, b_a3, c, e_a3, p, q, Jbar, M, w, k1, xi1, k2, xi2, l2_a3, l30, muV_a3, sigmaV_a3, sigma_a3)
+    ec_value = equityconvert_coco(r, K, T, l1_a3, a3, b_a3, c, e_a3, p, q, Jbar, M, w, wbar, k1, xi1, k2, xi2, l2_a3, l32, muV_a3, sigmaV_a3, sigma_a3) #ToDo: CoCo w.r.t. p
     end = time.time()
     print(ec_value, end - start)
 

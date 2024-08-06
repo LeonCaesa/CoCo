@@ -1,11 +1,25 @@
 import numpy as np
+import pandas as pd
+
 import scipy.special as sc
 from scipy.integrate import quad
 from scipy.special import erfc, expi, poch
 import mpmath as mp
 from mpmath import hyper, pcfd
+
+import os
 import warnings
 import pickle
+from collections.abc import Iterable
+
+def load_data(file_dir, file_name):
+    return_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=0)
+    cet_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=1)
+
+    B = cet_data['CET-1 ratio (phase-in)'].values/100
+    J = np.tan(np.pi * 0.5 - np.pi * B) + 1 / np.tan(np.pi * (1 - B[0]))
+    return return_data,  cet_data, B, J, cet_data['Names Date']
+
 # [CoCo Evaluation]
 def CDensity_derivative(l1, b, a, x, t):
     m1 = l1 * b ** a * np.power(x, a - 1) * np.exp(-l1 * t - b * x) / sc.factorial(a - 1)
@@ -63,10 +77,12 @@ def SupPr(l1, a, b, t, x):
     return c1 + c2 + c3
 
 
-def SupPr_Approx(l1, b, t, x, a =3):
+def SupPr_Approx(l1, b, t, x, a):
     with open('./SupPr.pkl', 'rb') as inp:
         spline = pickle.load(inp)
-    return spline(l1, b, t, x)
+    if isinstance(t, Iterable):
+        return np.array([spline(l1, a, b, ti, x) for ti in t])
+    return spline(l1, a, b, t, x)
 
 
 def CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, SigmaV, t, l31r, t0=0):
@@ -79,9 +95,9 @@ def E(k1, xi1, k2, xi2, l2, l32, muV, SigmaV, t, u, l31r, t0=0):
     return E1(k1, xi1, t, u, t0, l31r) * E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0)
 
 def E1(k1, xi1, t, u, t0=0, l31r = 0):
-
-    if t == 0:
-        return 1
+    #Todo: fix t==0 taking an array input
+    # if t == 0:
+    #     return 1
     if t0 == 0:
         l31r = 0
     m11 = k1 ** 2 * (t - t0) / (2 * xi1 ** 2)
@@ -124,8 +140,9 @@ def a_func(muV, SigmaV, case):
 
 
 def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs optimization
-    if t == 0:
-        return 1
+    # Todo: fix t==0 taking an array input
+    # if t == 0:
+    #     return 1
     m11 = -u * l32
     m12 = 1 - np.exp(-k2 * (t - t0))
     c1 = - m11 * m12 / k2
@@ -139,51 +156,78 @@ def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs opt
     c3 = -l2 * (t - t0)
     return np.exp(c1 + c2 + c3)
 
-def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma):
+def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
+                       k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False):
     m11 = K * np.exp(-r * T)
-    m12 = 1 - SupPr(l1, a, b, T, Jbar)
+    #m12 = 1 - SupPr(l1, a, b, T, Jbar)
+    m12 = 1 - SupPr_Approx(l1, b, T, Jbar, a)
     c1 = m11 * m12
 
     c2 = 0
     for k in range(1, M + 1):
-        c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
+        #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
+        c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr_Approx(l1, b, k * T / M, Jbar, a))
 
-    c3 = 0
-    NN = 12 * T
-    m31 = (1-w) * K
 
-    k_tilde = k1 + p * Sigma * xi1
-    l2_tilde = l2 * (psi2(muV, SigmaV, p) + 1)
-    muV_tilde = muV + p * SigmaV**2
+
     l1_tilde = l1 * (psi1(p, a, b, e) + 1)
 
-    for j in range(0, NN):
-        m32 = np.exp(- Q(p, q, r, Sigma, l1, l2, a, b, e, muV, SigmaV) * T/NN *j)
-        m33 = E1(k_tilde, xi1,  j * T/NN, 1)
-        m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, j * T/NN, 1)
-        m35 = SupPr(l1_tilde, a, b + e * p, (j + 1) * T/NN, Jbar)
-        m36 = SupPr(l1_tilde, a, b + e * p, j * T/NN, Jbar)
-        c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
+    if isinstance(T, Iterable) == False:
+        T = [T]
 
-    return c1 + c2 + c3
+    price_list = []
+    for Ti in T:
+        NN = 12 * Ti
+        c3 = 0
+        for j in range(0, NN):
+            m32 = np.exp(- Q(p, q, r, Sigma, l1, l2, a, b, e, muV, SigmaV) * Ti/NN *j)
+            #ToDo: confirm ignore_gov can be done through value assiginment
+            if ignore_gov:
+                m31 = w_bar * (1 - w) * K
+                m33 = 1
+                m34 = 1
+                w_bar = 1
 
-def writedown_coco(r, K, T, l1, a, b, c, Jbar, M, w, k1, xi1, k2, xi2, l2, l32, muV, SigmaV):
+            else:
+                k_tilde = k1 + p * Sigma * xi1
+                l2_tilde = l2 * (psi2(muV, SigmaV, p) + 1)
+                muV_tilde = muV + p * SigmaV ** 2
+
+                m31 = w_bar * (1 - w) * K
+                m33 = E1(k_tilde, xi1,  j * Ti/NN, 1)
+                m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, j * Ti/NN, 1)
+            m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * Ti/NN, Jbar, a)
+            m36 = SupPr_Approx(l1_tilde, b + e * p, j * Ti/NN, Jbar, a)
+            #m35 = SupPr(l1_tilde, a, b + e * p, (j + 1) * T/NN, Jbar)
+            #m36 = SupPr(l1_tilde, a, b + e * p, j * T/NN, Jbar)
+            c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
+        price_list.append(c1 + c2 + c3)
+
+    if len(T) == 1:
+        return price_list[0]
+    else:
+        return price_list
+
+def writedown_coco(r, K, T, l1, a, b, c, Jbar, M, w, w_bar, k1, xi1, k2, xi2, l2, l32, muV, SigmaV):
     m11 = K * np.exp(-r * T)
-    m12 = 1 - SupPr(l1, a, b, T, Jbar)
+    #m12 = 1 - SupPr(l1, a, b, T, Jbar)
+    m12 = 1 - SupPr_Approx(l1, a, b, T, Jbar)
     c1 = m11 * m12
 
     c2 = 0
     for k in range(1, M + 1):
-        c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
+        #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
+        c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr_Approx(l1, a, b, k * T / M, Jbar))
 
     c3 = 0
     NN = 12 * T
-    m31 = (1 - w) * K
+    m31 = w_bar * (1 - w) * K
 
     for j in range(0, NN):
         m32 = np.exp(-r * T / NN * j)
         m33 = E1(k1, xi1, j * T / NN, 1) * E2(k2, xi2, l2, l32, muV, SigmaV, j * T / NN, 1)
-        m34 = SupPr(l1, a, b, (j + 1) * (T / NN), Jbar) - SupPr(l1, a, b, j * (T / NN), Jbar)
+        #m34 = SupPr(l1, a, b, (j + 1) * (T / NN), Jbar) - SupPr(l1, a, b, j * (T / NN), Jbar)
+        m34 = SupPr_Approx(l1, a, b, (j + 1) * (T / NN), Jbar) - SupPr_Approx(l1, a, b, j * (T / NN), Jbar)
         c3 += m31 * m32 * m33 * m34
     return c1 + c2 + c3
 
@@ -196,7 +240,7 @@ def psi2(muV, sigmaV, u):
     return np.exp(muV * u + sigmaV ** 2 * u ** 2 / 2) - 1
 
 
-def Q(p, q, r, sigma, l1, l2, a, b, e, muV, SigmaV):
+def Q(p, q, r, sigma, l1, l2, a, b, e, muV, SigmaV): # q is dividend yield
     c1 = p * q
     c2 = (1 - p) * r
     c3 = 0.5 * p * (1 - p) * sigma ** 2
@@ -276,7 +320,11 @@ def optimize_stock(param, l1 = None, a= None, b = None, d = 1/252, x = None):
         log_density[inf_flag] = min(log_density[~inf_flag])
     return -np.sum(log_density)
 
-
+def optimize_cds(param, l2=None, muV=None, sigmaV=None, T=None, t0=None, cds_price=None):
+    k1, xi1, k2, xi2, l32 = param
+    model_price = CDS_spread(k1, xi1, k2, xi2, l2, l32, muV, sigmaV, T, 0, t0)
+    loss = np.abs(cds_price - model_price) / cds_price
+    return np.mean(loss)
 
 from sklearn.neighbors import KernelDensity
 from scipy.stats import iqr
