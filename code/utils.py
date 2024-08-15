@@ -156,7 +156,7 @@ def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs opt
     c3 = -l2 * (t - t0)
     return np.exp(c1 + c2 + c3)
 
-def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
+def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
                        k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False):
     m11 = K * np.exp(-r * T)
     #m12 = 1 - SupPr(l1, a, b, T, Jbar)
@@ -172,15 +172,21 @@ def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
 
     l1_tilde = l1 * (psi1(p, a, b, e) + 1)
 
-    if isinstance(T, Iterable) == False:
-        T = [T]
+    if isinstance(t0, Iterable) == False:
+        t0 = [t0]
+
+
+    M5 = int(np.floor(52 * T))
+    k_index = np.floor(t0/T * M5)
 
     price_list = []
-    for Ti in T:
-        NN = 12 * Ti
+    for i in range(len(t0)):
+        t0i = t0[i]
+        ri = r[i]
         c3 = 0
-        for j in range(0, NN):
-            m32 = np.exp(- Q(p, q, r, Sigma, l1, l2, a, b, e, muV, SigmaV) * Ti/NN *j)
+        for j in range(int(k_index[i]), M5):
+            #m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * Ti/M5 *j)
+            m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * (T/M5 * j -t0i) )
             #ToDo: confirm ignore_gov can be done through value assiginment
             if ignore_gov:
                 m31 = w_bar * (1 - w) * K
@@ -194,16 +200,23 @@ def equityconvert_coco(r, K, T, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
                 muV_tilde = muV + p * SigmaV ** 2
 
                 m31 = w_bar * (1 - w) * K
-                m33 = E1(k_tilde, xi1,  j * Ti/NN, 1)
-                m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, j * Ti/NN, 1)
-            m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * Ti/NN, Jbar, a)
-            m36 = SupPr_Approx(l1_tilde, b + e * p, j * Ti/NN, Jbar, a)
-            #m35 = SupPr(l1_tilde, a, b + e * p, (j + 1) * T/NN, Jbar)
-            #m36 = SupPr(l1_tilde, a, b + e * p, j * T/NN, Jbar)
-            c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
-        price_list.append(c1 + c2 + c3)
+                # m33 = E1(k_tilde, xi1,  j * Ti/M5, 1)
+                # m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, j * Ti/M5, 1)
 
-    if len(T) == 1:
+                m33 = E1(k_tilde, xi1,  T / M5 * j - t0i, 1)
+                m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, T / M5 * j - t0i, 1)
+
+
+            # m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * Ti/M5, Jbar, a)
+            # m36 = SupPr_Approx(l1_tilde, b + e * p, j * Ti/M5, Jbar, a)
+            # [change Ti to T]
+            m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * T/M5, Jbar, a)
+            m36 = SupPr_Approx(l1_tilde, b + e * p, j * T/M5, Jbar, a)
+
+            c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
+        price_list.append(c1[i] + c2[i] + c3)
+
+    if len(t0) == 1:
         return price_list[0]
     else:
         return price_list

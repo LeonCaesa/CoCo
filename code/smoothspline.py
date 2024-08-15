@@ -13,7 +13,10 @@ data_size = 10001
 l1_grids = np.array([random.random() * 100 for p in range(0, data_size)])
 b_grids = np.array([random.random() * 150 for p in range(0, data_size)])
 t_grids = np.array([random.random() for p in range(0, data_size)])
-x_grids = np.linspace(1.1, 1.25, data_size)
+#x_grids = np.linspace(1.1, 1.25, data_size)
+
+B0_grids = np.random.uniform(0.05, 0.5, data_size)
+x_grids = np.tan( np.pi * (1 - 2 * 0.05)/2) + 1/ np.tan(np.pi * (1-B0_grids)) + 13
 a_grids = np.random.choice(5, data_size) + 1
 
 
