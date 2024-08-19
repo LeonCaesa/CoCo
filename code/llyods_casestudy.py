@@ -5,7 +5,7 @@ from utils import *
 
 
 optimize_stock = False
-save_param =  False
+save_param = False
 
 
 
@@ -27,8 +27,8 @@ def Callback_Stock_CaseStudy(Xi):
 
 
 def Callback_CoCo_CaseStudy(Xi):
-    global Nfeval, wbar, r, q, K, T, c, Jbar, M, coco_price, l1, a, b, k1, xi1, k2, xi2, l32, ignore_gov, sigma, l2, muV, sigmaV, eta
-    func_values = optimize_convertcoco(Xi, w_bar=wbar, r=r, q=q, K=K, T=T, c=c, Jbar=Jbar, M=M, coco_price=coco_price,
+    global Nfeval, wbar, r, q, K, T, t0, c, Jbar, M, coco_price, l1, a, b, k1, xi1, k2, xi2, l32, ignore_gov, sigma, l2, muV, sigmaV, eta
+    func_values = optimize_convertcoco(Xi, w_bar=wbar, r=r, q=q, K=K, T=T, t0=t0, c=c, Jbar=Jbar, M=M, coco_price=coco_price,
                          l1=l1, a=a, b=b,  # latent params
                          k1=k1, xi1=xi1, k2=k2, xi2=xi2, l32=l32, ignore_gov=ignore_gov,  # intervention params
                          sigma=sigma, l2=l2, muV=muV, sigmaV=sigmaV, e=eta)
@@ -50,17 +50,18 @@ r = data['interest rate r'].values/100
 coco_price = data['Price'].values
 maturity = pd.to_datetime('2019-05-31')
 T = 10
-t0 = T - np.array((maturity - data.index).days.astype(int)/365) #ToDo: confirm 365 makes more sense
+#t0 = T - np.array((maturity - data.index).days.astype(int)/365) #ToDo: confirm 365 makes more sense
+t0 = np.array(range(data.index.shape[0]))/252
 
 if optimize_stock:
-    bounds = [(-1, 1), (0, 1), (0, None), (-1, 1), (0, 1), (0, None), (0, 100), (0, 150)]
+    bounds = [(-1, 1), (0, 1), (0, 100), (-1, 1), (0, 1), (0, None), (0, 100), (0, 150)]
 
     sorted_list = []
     for a in range(1, 5):
-
-        init, Nfeval = [[0.465593, 0.224503, 26.0084, -0.00140472, 0.0514438, 0.539438, 1, 1], 1]
+        #mu, sigma, l2, muV, SigmaV, e, l1, b
+        init, Nfeval = [[0.3225, 0.2305, 32.95, -0.0017, 0.0407, 0.4365, 21.64, 22.49], 1]
         stock_res = minimize(optimize_stock_casestudy, init, args=(a, 1/252, RET), method='Nelder-Mead',
-                        options={'maxiter': 500}, bounds=bounds, callback=Callback_Stock_CaseStudy, tol=0.001)
+                        options={'maxiter': 100}, bounds=bounds, callback=Callback_Stock_CaseStudy, tol=0.001)
 
         sorted_list.append([stock_res.fun, *stock_res.x, a])
     sorted_list = sorted(sorted_list)
@@ -74,8 +75,8 @@ loss, mu, sigma, l2, muV, sigmaV, eta, l1, b, a = stock_param.iloc[0].values
 
 
 
-RET_grids = np.linspace(-0.5, 0.5, 100)
-Eval_Density = Density_stock(l1, a, b, mu, sigma, l2, mu, sigma, eta, RET_grids)
+RET_grids = np.linspace(-0.2, 0.2, 100)
+Eval_Density = Density_stock(l1, a, b, mu, sigma, l2, muV, sigmaV, eta, RET_grids)
 Data_DensityStock = KDE_estimate(RET.values, RET_grids)
 plt.plot(RET_grids, Eval_Density, linestyle='--', label='Fitted')
 plt.plot(RET_grids, Data_DensityStock, label='Kernel')

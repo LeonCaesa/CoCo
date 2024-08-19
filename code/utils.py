@@ -78,7 +78,7 @@ def SupPr(l1, a, b, t, x):
 
 
 def SupPr_Approx(l1, b, t, x, a):
-    with open('./SupPr.pkl', 'rb') as inp:
+    with open('./spline_0814/SupPr.pkl', 'rb') as inp:
         spline = pickle.load(inp)
     if isinstance(t, Iterable):
         return np.array([spline(l1, a, b, ti, x) for ti in t])
@@ -158,15 +158,15 @@ def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs opt
 
 def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
                        k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False):
-    m11 = K * np.exp(-r * T)
+    m11 = K * np.exp(-r * (T-t0))
     #m12 = 1 - SupPr(l1, a, b, T, Jbar)
-    m12 = 1 - SupPr_Approx(l1, b, T, Jbar, a)
+    m12 = 1 - SupPr_Approx(l1, b, T - t0, Jbar, a)
     c1 = m11 * m12
 
     c2 = 0
-    for k in range(1, M + 1):
+    for i in range(1, M + 1):
         #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
-        c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr_Approx(l1, b, k * T / M, Jbar, a))
+        c2 += c * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, b, i * T/M -t0, Jbar, a)))
 
 
 
@@ -177,14 +177,14 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
 
 
     M5 = int(np.floor(52 * T))
-    k_index = np.floor(t0/T * M5)
+    k_index = np.floor(t0 * M5 /T)
 
     price_list = []
     for i in range(len(t0)):
         t0i = t0[i]
         ri = r[i]
         c3 = 0
-        for j in range(int(k_index[i]), M5):
+        for j in range(int(k_index[i]), M5 + 1):
             #m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * Ti/M5 *j)
             m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * (T/M5 * j -t0i) )
             #ToDo: confirm ignore_gov can be done through value assiginment
@@ -210,8 +210,8 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
             # m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * Ti/M5, Jbar, a)
             # m36 = SupPr_Approx(l1_tilde, b + e * p, j * Ti/M5, Jbar, a)
             # [change Ti to T]
-            m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * T/M5, Jbar, a)
-            m36 = SupPr_Approx(l1_tilde, b + e * p, j * T/M5, Jbar, a)
+            m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * T/M5 - t0i, Jbar, a)
+            m36 = SupPr_Approx(l1_tilde, b + e * p, j * T/M5 - t0i, Jbar, a)
 
             c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
         price_list.append(c1[i] + c2[i] + c3)
