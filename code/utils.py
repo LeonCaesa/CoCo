@@ -5,7 +5,7 @@ import scipy.special as sc
 from scipy.integrate import quad
 from scipy.special import erfc, expi, poch
 import mpmath as mp
-from mpmath import hyper, pcfd
+from mpmath import hyper, pcfd, log
 
 import os
 import warnings
@@ -28,15 +28,19 @@ def CDensity_derivative(l1, b, a, x, t):
     u1_input2 = np.linspace(2 + 1 / a, 3, a)
     u1_input3 = l1 * t * np.power(b * x / a, a)
     # first_u = np.array([float(hyper(u1_input1, u1_input2, i, maxterms=10 ** 6)) for i in u1_input3])
-    first_u = float(hyper(u1_input1, u1_input2, u1_input3, maxterms=10 ** 6))
+    #first_u = float(hyper(u1_input1, u1_input2, u1_input3, maxterms=10 ** 6))
+    first_u = hyper(u1_input1, u1_input2, u1_input3, maxterms=10 ** 6)
 
     m2 = l1 * t - 1
     u2_input1 = np.array([])
     u2_input2 = np.linspace(1 + 1 / a, 2, a)
     u2_input3 = l1 * t * np.power(b * x / a, a)
     # second_u = np.array([float(hyper(u2_input1, u2_input2, i, maxterms=10 ** 6)) for i in u2_input3])
-    second_u = float(hyper(u2_input1, u2_input2, u2_input3, maxterms=10 ** 6))
-    return m1 * (m11 * first_u - m2 * second_u)
+    #second_u = float(hyper(u2_input1, u2_input2, u2_input3, maxterms=10 ** 6))
+    second_u = hyper(u2_input1, u2_input2, u2_input3, maxterms=10 ** 6)
+    #return m1 * (m11 * first_u - m2 * second_u)
+    return float(m1*(m11 * first_u - m2 * second_u))
+
 
 
 def I1(l1, a, b, t):
@@ -60,7 +64,15 @@ def SupPr(l1, a, b, t, x):
     c1 = 1 - np.exp(-l1 * t)
 
     # int2_func = lambda y: CDensity_derivative(l1, b, a, y, t)
+    #np.exp(Density_J(l1, a, b, 10, np.array([7])))
     int2_func = lambda y: np.exp(Density_J(l1, a, b, t, np.array([y])))
+
+# density_value = []
+# for input_ in range(100):
+#    density_value.append(int2_func(input_))
+# plt.plot(range(100), density_value)
+# plt.show()
+
     # print(int2_func(np.array([5])))
     c2 = -quad(int2_func, 0, x + l1 * a * t / b)[0]
 
@@ -166,7 +178,7 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
     c2 = 0
     for i in range(1, M + 1):
         #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
-        c2 += c * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, b, i * T/M -t0, Jbar, a)))
+        c2 += c * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, b, i * T/M -t0, Jbar, a))) # ToDo: check 4.2.2 ti =t0?
 
 
 
@@ -189,10 +201,11 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
             m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * (T/M5 * j -t0i) )
             #ToDo: confirm ignore_gov can be done through value assiginment
             if ignore_gov:
-                m31 = w_bar * (1 - w) * K
+                w_bar = 1
+                m31 = w_bar * (1 - w) * K #ToDo: check 4.2.2 (St0/S0)**p
                 m33 = 1
                 m34 = 1
-                w_bar = 1
+
 
             else:
                 k_tilde = k1 + p * Sigma * xi1
@@ -263,15 +276,17 @@ def Q(p, q, r, sigma, l1, l2, a, b, e, muV, SigmaV): # q is dividend yield
 
 
 def Density_J(l, a, b ,t ,x):
-    multiplier = np.exp(-l * t)
-    first_m = l * b**a * t * x**(a-1) * np.exp(-b * x)/ sc.factorial(a-1)
+    log_multiplier = -l * t
+    #first_m = l * b**a * t * x**(a-1) * np.exp(-b * x)/ sc.factorial(a-1)
+    log_firstm = np.log(l) + a * np.log(b) +  np.log(t) + (a-1) * np.log(x) - b * x - np.log(sc.factorial(a-1))
 
     u_input1 = np.array([])
     u_input2 = np.linspace(1 + 1/a, 2, a)
     u_input3 = l * t * (b * x/a)**a
 
-    first_u = np.array([float(hyper(u_input1, u_input2, i,  maxterms=10**6)) for i in u_input3])
-    return np.log(multiplier) + np.log(first_m) + np.log(first_u)
+    log_firstu = np.array([float(log(hyper(u_input1, u_input2, i,  maxterms=10**6))) for i in u_input3])
+    #return np.log(multiplier) + np.log(first_m) + np.log(first_u)
+    return log_multiplier + log_firstm + log_firstu
 
 def optimize_DensityJ(param, a = 1, T= 1/4, H = None):
     l, b = param
