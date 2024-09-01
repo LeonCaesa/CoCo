@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "smoothspline.py", line 66, in <module>
+    spline = sp.interpolate.Rbf(l1_grids[na_flag], a_grids[na_flag],
+  File "/home/jovyan/.conda/envs/CoCo/lib/python3.8/site-packages/scipy/interpolate/_rbf.py", line 249, in __init__
+    self.epsilon = np.power(np.prod(edges)/self.N, 1.0/edges.size)
+ZeroDivisionError: float division by zero

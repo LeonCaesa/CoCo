@@ -4,10 +4,13 @@ from utils import *
 import scipy as sp
 import scipy.interpolate
 import matplotlib.pyplot as plt
+import numpy as np
 from mpl_toolkits.mplot3d import axes3d
 import pickle
 import pandas as pd
+import time
 
+np.random.seed(3)
 data_size = 10001
 # ToDo: confirm it is okay to fix a = 3
 l1_grids = np.array([random.random() * 100 for p in range(0, data_size)])
@@ -15,7 +18,7 @@ b_grids = np.array([random.random() * 150 for p in range(0, data_size)])
 t_grids = np.array([random.random() * 10 for p in range(0, data_size)])
 #x_grids = np.linspace(1.1, 1.25, data_size)
 
-B0_grids = np.random.uniform(0.05, 0.5, data_size)
+B0_grids = np.random.uniform(0.05, 0.2, data_size)
 x_grids = np.tan( np.pi * (1 - 2 * 0.05)/2) + 1/ np.tan(np.pi * (1-B0_grids))# + 13
 a_grids = np.random.choice(5, data_size) + 1
 
@@ -26,8 +29,12 @@ a_grids = np.random.choice(5, data_size) + 1
 # print('Max of simulated parameters are')
 # print(Pr_table.max())
 
-
-
+# import time
+# i = 0
+# start = time.time()
+# test = SupPr(l1_grids[i], a_grids[i], b_grids[i], t_grids[i], x_grids[i])
+# end = time.time()
+# print(end-start)
 
 if os.path.exists('./spline_approx.csv'):
     Pr_table = pd.read_csv('./spline_approx.csv')
@@ -38,9 +45,19 @@ if os.path.exists('./spline_approx.csv'):
     x_grids = Pr_table.iloc[:, 3].values
     a_grids = Pr_table.iloc[:, 4].values
 else:
-    func_values = [SupPr(l1_grids[i], a_grids[i], b_grids[i], t_grids[i], x_grids[i]) for i in range(data_size)]
-    Pr_table = pd.DataFrame([l1_grids, b_grids, t_grids, x_grids, a_grids, func_values]).T
-    Pr_table.to_csv('./spline_approx.csv', index = False)
+    time_list = []
+    func_list = []
+    for i in range(data_size):
+        start = time.time()
+        func_values = SupPr(l1_grids[i], a_grids[i], b_grids[i], t_grids[i], x_grids[i])
+        end = time.time()
+        time_list.append(end - start)
+        func_list.append(func_values)
+
+        Pr_table = pd.DataFrame([l1_grids[:(i+1)], b_grids[:(i+1)], t_grids[:(i+1)], x_grids[:(i+1)], a_grids[:(i+1)], func_list[:(i+1)], time_list[:(i+1)]]).T
+        Pr_table.to_csv('./spline_approx.csv', index = False)
+
+
 #L1_grids, B_grids, T_grids, X_grids = np.meshgrid(l1_grids, b_grids, [0.25] * data_size, x_grids)
 
 if os.path.exists('./SupPr.pkl'):
