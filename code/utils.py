@@ -48,14 +48,14 @@ def I1(l1, a, b, t):
     integrand = lambda y: (1 - b * y / (l1 * a * t)) * np.exp(Density_J(l1, a, b, t, np.array([y])))
     lower = 0
     upper = l1 * a * t / b
-    return quad(integrand, lower, upper, epsabs=1e-4)[0]
+    return quad(integrand, lower, upper, epsabs=1e-3)[0]
 
 
 def I2(l1, a, b, t, x):
     integrand = lambda y: CDensity_derivative(l1, b, a, y, t)
     lower = 0
     upper = x
-    return quad(integrand, lower, upper, epsabs=1e-4)[0]
+    return quad(integrand, lower, upper, epsabs=1e-3)[0]
 
 
 def SupPr(l1, a, b, t, x):

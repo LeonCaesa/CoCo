@@ -10,6 +10,7 @@ import pickle
 import pandas as pd
 import time
 
+random.seed(3)
 np.random.seed(3)
 data_size = 10001
 # ToDo: confirm it is okay to fix a = 3
@@ -55,7 +56,8 @@ else:
         func_list.append(func_values)
 
         Pr_table = pd.DataFrame([l1_grids[:(i+1)], b_grids[:(i+1)], t_grids[:(i+1)], x_grids[:(i+1)], a_grids[:(i+1)], func_list[:(i+1)], time_list[:(i+1)]]).T
-        Pr_table.to_csv('./spline_approx.csv', index = False)
+        Pr_table.columns = ['l1', 'b', 't', 'x', 'a', 'func', 'time']
+        Pr_table.to_csv('./spline_approx_loop.csv', index = False)
 
 
 #L1_grids, B_grids, T_grids, X_grids = np.meshgrid(l1_grids, b_grids, [0.25] * data_size, x_grids)
