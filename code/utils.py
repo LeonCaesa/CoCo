@@ -90,7 +90,8 @@ def SupPr(l1, a, b, t, x):
 
 
 def SupPr_Approx(l1, b, t, x, a):
-    with open('./spline_0814/SupPr.pkl', 'rb') as inp:
+    #with open('./spline_0814/SupPr.pkl', 'rb') as inp:
+    with open('./SupPr_loop.pkl', 'rb') as inp:
         spline = pickle.load(inp)
     if isinstance(t, Iterable):
         return np.array([spline(l1, a, b, ti, x) for ti in t])
