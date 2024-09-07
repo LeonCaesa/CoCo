@@ -41,14 +41,14 @@ def Callback_CoCo_CaseStudy(Xi):
 
 
 file_name = 'Lloyd (09-11).xlsx'
-data = pd.read_excel('../data/Charlie0714/Lloyd (09-11).xlsx')
+data = pd.read_excel('../data/Charlie0907/Lloyd (09-11) coc and stock.xlsx')
 data = data.set_index('Dates')
 data = data.dropna(how = 'any')
 RET = data['return without dividend (in percentage)']/100
 
 r = data['interest rate r'].values/100
-coco_price = data['Price'].values
-maturity = pd.to_datetime('2019-05-31')
+coco_price = data['CoCo Price'].values
+maturity = pd.to_datetime('2019-11-23')
 T = 10
 #t0 = T - np.array((maturity - data.index).days.astype(int)/365) #ToDo: confirm 365 makes more sense
 t0 = np.array(range(data.index.shape[0]))/252
@@ -88,8 +88,8 @@ def optimize_convertcoco(param, w_bar = None, r=None, q=None, K=None, T=None,t0 
                          l1=None, a=None, b=None,  # latent params
                          k1=None, xi1=None, k2=None, xi2=None, l32=None, ignore_gov=None,  # intervention params
                          sigma = None, l2=None, muV=None, sigmaV=None, e=None):
-    #w, p = param
-    w, p, Jbar = param
+    w, p = param
+    #w, p, Jbar = param
     model_price = equityconvert_coco(r, K, T, t0,
                                      l1, a, b,
                                      c, e, p, q,
@@ -107,7 +107,8 @@ C0 = 6.3/100 # for llyods
 wbar = 1 # for llyods
 q = 0 # for llyods
 
-K = 77.5158
+#K = 77.5158
+K = 100
 c = 0.15
 M = 20
 Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
@@ -118,12 +119,25 @@ Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
 # intervention params
 k1, xi1, k2, xi2, l32, ignore_gov = [None, None, None, None, None, True]
 
+# p = 0.49
+# w = 1.0
+# model_price = equityconvert_coco(r, K, T, t0,
+#                                  l1, a, b,
+#                                  c, eta, p, q,
+#                                  Jbar, M, w, wbar,
+#                                  k1, xi1, k2, xi2,
+#                                  l2, l32, muV, sigmaV, sigma,
+#                                  ignore_gov=ignore_gov)
+#
+# plt.plot(model_price, '+', label = 'estimated')
+# plt.plot(coco_price, 'o', label = 'actual')
+# plt.legend()
+# plt.show()
 
-
-# init, Nfeval = [[1, 0.49], 1]
-# bounds = [(0, 1), (0, 1)]
-init, Nfeval = [[1, 0.49, Jbar], 1]
-bounds = [(0, 1), (0, 1), (0.01, 4.9)]
+init, Nfeval = [[1, 0.49], 1]
+bounds = [(0, 1), (0, 1)]
+# init, Nfeval = [[1, 0.49, Jbar], 1]
+# bounds = [(0, 1), (0, 1), (0.01, 4.9)]
 
 res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, Jbar, M, coco_price,  # data
                          l1, a, b,  # latent params
