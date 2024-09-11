@@ -33,8 +33,10 @@ def Callback_CoCo_CaseStudy(Xi):
                          k1=k1, xi1=xi1, k2=k2, xi2=xi2, l32=l32, ignore_gov=ignore_gov,  # intervention params
                          sigma=sigma, l2=l2, muV=muV, sigmaV=sigmaV, e=eta)
 
-    print('{0: 4d}     w:{1:.4f}     p:{2: .4f}    loss:{3:.4f}'.format(
-            Nfeval, Xi[0], Xi[1], func_values))
+    # print('{0: 4d}     w:{1:.4f}     p:{2: .4f}    loss:{3:.4f}'.format(
+    #         Nfeval, Xi[0], Xi[1], func_values))
+    print('{0: 4d}     w:{1:.4f}     p:{2: .4f}     Jbar:{3: .4f}    loss:{4:.4f}'.format(
+                Nfeval, Xi[0], Xi[1], Xi[2], func_values))            
     Nfeval += 1
 
 
@@ -88,8 +90,8 @@ def optimize_convertcoco(param, w_bar = None, r=None, q=None, K=None, T=None,t0 
                          l1=None, a=None, b=None,  # latent params
                          k1=None, xi1=None, k2=None, xi2=None, l32=None, ignore_gov=None,  # intervention params
                          sigma = None, l2=None, muV=None, sigmaV=None, e=None):
-    w, p = param
-    #w, p, Jbar = param
+    #w, p = param
+    w, p, Jbar = param
     model_price = equityconvert_coco(r, K, T, t0,
                                      l1, a, b,
                                      c, e, p, q,
@@ -119,25 +121,26 @@ Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
 # intervention params
 k1, xi1, k2, xi2, l32, ignore_gov = [None, None, None, None, None, True]
 
-# p = 0.49
-# w = 1.0
-# model_price = equityconvert_coco(r, K, T, t0,
-#                                  l1, a, b,
-#                                  c, eta, p, q,
-#                                  Jbar, M, w, wbar,
-#                                  k1, xi1, k2, xi2,
-#                                  l2, l32, muV, sigmaV, sigma,
-#                                  ignore_gov=ignore_gov)
-#
-# plt.plot(model_price, '+', label = 'estimated')
-# plt.plot(coco_price, 'o', label = 'actual')
-# plt.legend()
-# plt.show()
+p = 0.49
+w = 1.0
+Jbar = 4.9
+model_price = equityconvert_coco(r, K, T, t0,
+                                 l1, a, b,
+                                 c, eta, p, q,
+                                 Jbar, M, w, wbar,
+                                 k1, xi1, k2, xi2,
+                                 l2, l32, muV, sigmaV, sigma,
+                                 ignore_gov=ignore_gov)
 
-init, Nfeval = [[1, 0.49], 1]
-bounds = [(0, 1), (0, 1)]
-# init, Nfeval = [[1, 0.49, Jbar], 1]
-# bounds = [(0, 1), (0, 1), (0.01, 4.9)]
+plt.plot(model_price, '+', label = 'estimated')
+plt.plot(coco_price, 'o', label = 'actual')
+plt.legend()
+plt.show()
+
+# init, Nfeval = [[1, 0.49], 1]
+# bounds = [(0, 1), (0, 1)]
+init, Nfeval = [[1, 0.49, Jbar], 1]
+bounds = [(0, 1), (0, 1), (0.01, 4.9)]
 
 res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, Jbar, M, coco_price,  # data
                          l1, a, b,  # latent params
