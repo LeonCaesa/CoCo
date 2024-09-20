@@ -111,7 +111,7 @@ q = 0 # for llyods
 
 #K = 77.5158
 K = 100
-c = 0.15
+c = 0.15/2
 M = 20
 Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
 
@@ -123,7 +123,7 @@ k1, xi1, k2, xi2, l32, ignore_gov = [None, None, None, None, None, True]
 
 p = 0.49
 w = 1.0
-Jbar = 4.9
+Jbar = 0.1
 model_price = equityconvert_coco(r, K, T, t0,
                                  l1, a, b,
                                  c, eta, p, q,

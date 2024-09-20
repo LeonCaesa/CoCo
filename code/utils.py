@@ -100,7 +100,7 @@ def SupPr(l1, a, b, t, x):
     return c1 + c2 + c3
 
 
-def SupPr_Approx(l1, b, t, x, a):
+def SupPr_Approx(l1, a, b, t, x):
     #with open('./spline_0814/SupPr.pkl', 'rb') as inp:
     #with open('./SupPr_loop.pkl', 'rb') as inp:
     with open('./SupPr_loop.pkl', 'rb') as inp:
@@ -185,13 +185,17 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
                        k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False):
     m11 = K * np.exp(-r * (T-t0))
     #m12 = 1 - SupPr(l1, a, b, T, Jbar)
-    m12 = 1 - SupPr_Approx(l1, b, T - t0, Jbar, a)
+    m12 = 1 - SupPr_Approx(l1, a, b, T - t0, Jbar)
     c1 = m11 * m12
 
-    c2 = 0
+    c2 = np.zeros(np.shape(t0))
     for i in range(1, M + 1):
         #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
-        c2 += c * K * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, b, i * T/M -t0, Jbar, a))) # ToDo: check 4.2.2 ti =t0?
+        ti_minus_t0 = i * T / M - t0
+        #c2_addvalue = c * K * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0, Jbar))) # ToDo: check 4.2.2 ti =t0?
+        valid_ti_flag = ti_minus_t0>=0
+        c2_addvalue = c * K * np.exp(-r[valid_ti_flag] * (ti_minus_t0[valid_ti_flag]) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[valid_ti_flag], Jbar))) # ToDo: check 4.2.2 ti =t0?
+        c2[valid_ti_flag] += c2_addvalue
 
 
 
@@ -236,8 +240,8 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
             # m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * Ti/M5, Jbar, a)
             # m36 = SupPr_Approx(l1_tilde, b + e * p, j * Ti/M5, Jbar, a)
             # [change Ti to T]
-            m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * T/M5 - t0i, Jbar, a)
-            m36 = SupPr_Approx(l1_tilde, b + e * p, j * T/M5 - t0i, Jbar, a)
+            m35 = SupPr_Approx(l1_tilde, a, b + e * p, (j + 1) * T/M5 - t0i, Jbar)
+            m36 = SupPr_Approx(l1_tilde, a, b + e * p, j * T/M5 - t0i, Jbar)
 
             c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
         price_list.append(c1[i] + c2[i] + c3)

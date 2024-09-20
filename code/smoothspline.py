@@ -19,8 +19,9 @@ b_grids = np.array([random.random() * 150 for p in range(0, data_size)])
 t_grids = np.array([random.random() * 10 for p in range(0, data_size)])
 #x_grids = np.linspace(1.1, 1.25, data_size)
 
-B0_grids = np.random.uniform(0.05, 0.5, data_size)
-x_grids = np.tan( np.pi * (1 - 2 * 0.05)/2) + 1/ np.tan(np.pi * (1-B0_grids))# + 13
+# B0_grids = np.random.uniform(0.05, 0.5, data_size)
+# x_grids = np.tan( np.pi * (1 - 2 * 0.05)/2) + 1/ np.tan(np.pi * (1-B0_grids))# + 13
+x_grids = np.array([random.random() * 10 for p in range(0, data_size)])
 a_grids = np.random.choice(5, data_size) + 1
 
 # Pr_table = pd.DataFrame([l1_grids, b_grids, t_grids, x_grids, a_grids]).T
