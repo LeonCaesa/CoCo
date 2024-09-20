@@ -76,21 +76,33 @@ def SupPr(l1, a, b, t, x):
     # print(int2_func(np.array([5])))
     c2 = -quad(int2_func, 0, x + l1 * a * t / b)[0]
 
+    # m3 = lambda s: I1(l1, a, b, t - s)
+    # input_CDensity = lambda s: x + l1 * a * s / b
+    # input_I2 = lambda s: x + l1 * a * s / b
+
+    # int3_func = lambda s: m3(s) * (
+    #         np.exp(Density_J(l1, a, b, s, np.array([input_CDensity(s)]))) -
+    #         b / a * (np.exp(-l1 * s) - 1 / l1 * I2(l1, a, b, s, input_I2(s)))
+    # )
+
+    # c3 = quad(int3_func, 0, t, epsabs=1e-4)[0]
+
     m3 = lambda s: I1(l1, a, b, t - s)
     input_CDensity = lambda s: x + l1 * a * s / b
-    input_I2 = lambda s: x + l1 * a * s / b
+    
 
     int3_func = lambda s: m3(s) * (
-            np.exp(Density_J(l1, a, b, s, np.array([input_CDensity(s)]))) -
-            b / a * (np.exp(-l1 * s) - 1 / l1 * I2(l1, a, b, s, input_I2(s)))
+            np.exp(Density_J(l1, a, b, s, np.array([input_CDensity(s)])))
     )
 
     c3 = quad(int3_func, 0, t, epsabs=1e-4)[0]
+
     return c1 + c2 + c3
 
 
 def SupPr_Approx(l1, b, t, x, a):
     #with open('./spline_0814/SupPr.pkl', 'rb') as inp:
+    #with open('./SupPr_loop.pkl', 'rb') as inp:
     with open('./SupPr_loop.pkl', 'rb') as inp:
         spline = pickle.load(inp)
     if isinstance(t, Iterable):
@@ -179,7 +191,7 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
     c2 = 0
     for i in range(1, M + 1):
         #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
-        c2 += c * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, b, i * T/M -t0, Jbar, a))) # ToDo: check 4.2.2 ti =t0?
+        c2 += c * K * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, b, i * T/M -t0, Jbar, a))) # ToDo: check 4.2.2 ti =t0?
 
 
 

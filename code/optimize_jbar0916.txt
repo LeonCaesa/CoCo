@@ -1,0 +1,17 @@
+   1     w:1.0000     p: 0.4900     Jbar: 4.9000    loss:2.1192
+Traceback (most recent call last):
+  File "llyods_casestudy.py", line 145, in <module>
+    res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, Jbar, M, coco_price,  # data
+  File "/home/jovyan/.conda/envs/CoCo/lib/python3.8/site-packages/scipy/optimize/_minimize.py", line 684, in minimize
+    res = _minimize_neldermead(fun, x0, args, callback, bounds=bounds,
+  File "/home/jovyan/.conda/envs/CoCo/lib/python3.8/site-packages/scipy/optimize/_optimize.py", line 870, in _minimize_neldermead
+    fxr = func(xr)
+  File "/home/jovyan/.conda/envs/CoCo/lib/python3.8/site-packages/scipy/optimize/_optimize.py", line 569, in function_wrapper
+    fx = function(np.copy(x), *(wrapper_args + args))
+  File "llyods_casestudy.py", line 95, in optimize_convertcoco
+    model_price = equityconvert_coco(r, K, T, t0,
+  File "/home/jovyan/CoCo/code/utils.py", line 239, in equityconvert_coco
+    m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * T/M5 - t0i, Jbar, a)
+  File "/home/jovyan/CoCo/code/utils.py", line 107, in SupPr_Approx
+    spline = pickle.load(inp)
+EOFError: Ran out of input

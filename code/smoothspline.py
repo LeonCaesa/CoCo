@@ -19,7 +19,7 @@ b_grids = np.array([random.random() * 150 for p in range(0, data_size)])
 t_grids = np.array([random.random() * 10 for p in range(0, data_size)])
 #x_grids = np.linspace(1.1, 1.25, data_size)
 
-B0_grids = np.random.uniform(0.05, 0.2, data_size)
+B0_grids = np.random.uniform(0.05, 0.5, data_size)
 x_grids = np.tan( np.pi * (1 - 2 * 0.05)/2) + 1/ np.tan(np.pi * (1-B0_grids))# + 13
 a_grids = np.random.choice(5, data_size) + 1
 
@@ -57,7 +57,7 @@ else:
 
         Pr_table = pd.DataFrame([l1_grids[:(i+1)], b_grids[:(i+1)], t_grids[:(i+1)], x_grids[:(i+1)], a_grids[:(i+1)], func_list[:(i+1)], time_list[:(i+1)]]).T
         Pr_table.columns = ['l1', 'b', 't', 'x', 'a', 'func', 'time']
-        Pr_table.to_csv('./spline_approx_loop.csv', index = False)
+        Pr_table.to_csv('./spline_approx_loop_changed0916.csv', index = False)
 
 
 #L1_grids, B_grids, T_grids, X_grids = np.meshgrid(l1_grids, b_grids, [0.25] * data_size, x_grids)

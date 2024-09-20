@@ -1,0 +1,6 @@
+Traceback (most recent call last):
+  File "/home/jovyan/CoCo/code/smoothspline.py", line 70, in <module>
+    spline = sp.interpolate.Rbf(l1_grids[na_flag], a_grids[na_flag],
+  File "/home/jovyan/.local/lib/python3.10/site-packages/scipy/interpolate/_rbf.py", line 239, in __init__
+    raise ValueError("All arrays must be equal length.")
+ValueError: All arrays must be equal length.
