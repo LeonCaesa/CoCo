@@ -58,7 +58,7 @@ else:
 
         Pr_table = pd.DataFrame([l1_grids[:(i+1)], b_grids[:(i+1)], t_grids[:(i+1)], x_grids[:(i+1)], a_grids[:(i+1)], func_list[:(i+1)], time_list[:(i+1)]]).T
         Pr_table.columns = ['l1', 'b', 't', 'x', 'a', 'func', 'time']
-        Pr_table.to_csv('./spline_approx_loop_changed0916.csv', index = False)
+        Pr_table.to_csv('./spline_approx_loop_changed0919.csv', index = False)
 
 
 #L1_grids, B_grids, T_grids, X_grids = np.meshgrid(l1_grids, b_grids, [0.25] * data_size, x_grids)
