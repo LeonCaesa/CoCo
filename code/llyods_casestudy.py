@@ -121,9 +121,9 @@ Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
 # intervention params
 k1, xi1, k2, xi2, l32, ignore_gov = [None, None, None, None, None, True]
 
-p = 0.49
+p = 0.0012
 w = 1.0
-Jbar = 0.1
+Jbar = 0.5034
 model_price = equityconvert_coco(r, K, T, t0,
                                  l1, a, b,
                                  c, eta, p, q,
@@ -132,14 +132,14 @@ model_price = equityconvert_coco(r, K, T, t0,
                                  l2, l32, muV, sigmaV, sigma,
                                  ignore_gov=ignore_gov)
 
-plt.plot(model_price, '+', label = 'estimated')
-plt.plot(coco_price, 'o', label = 'actual')
+plt.plot(data.index, model_price, '+', label = 'estimated')
+plt.plot(data.index, coco_price, 'o', label = 'actual')
 plt.legend()
 plt.show()
 
 # init, Nfeval = [[1, 0.49], 1]
 # bounds = [(0, 1), (0, 1)]
-init, Nfeval = [[1, 0.49, Jbar], 1]
+init, Nfeval = [[0.9, 0.49, Jbar], 1]
 bounds = [(0, 1), (0, 1), (0.01, 4.9)]
 
 res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, Jbar, M, coco_price,  # data

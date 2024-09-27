@@ -189,15 +189,23 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
     c1 = m11 * m12
 
     c2 = np.zeros(np.shape(t0))
+    ai = np.zeros(np.shape(t0))
     for i in range(1, M + 1):
         #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
         ti_minus_t0 = i * T / M - t0
         #c2_addvalue = c * K * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0, Jbar))) # ToDo: check 4.2.2 ti =t0?
         valid_ti_flag = ti_minus_t0>=0
-        c2_addvalue = c * K * np.exp(-r[valid_ti_flag] * (ti_minus_t0[valid_ti_flag]) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[valid_ti_flag], Jbar))) # ToDo: check 4.2.2 ti =t0?
+        c2_addvalue = c * K * np.exp(-r[valid_ti_flag] * (ti_minus_t0[valid_ti_flag])) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[valid_ti_flag], Jbar)) # ToDo: check 4.2.2 ti =t0?
         c2[valid_ti_flag] += c2_addvalue
 
-
+        ai_flag = (t0 > (i - 1) * (T / M)) & (t0 <= i * (T / M))
+        ai_addvalue = c * K * (t0[ai_flag] - (i-1) * T / M) / (T / M) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[ai_flag], Jbar))
+        ai[ai_flag] += ai_addvalue
+        # AI_flag = (t0 > (i-1) * (T/M)) & (t0 <= i * (T/M))
+        # AI = c * K * (t0 - (i-1) * T / M) / (T / M)
+        # AI[~AI_flag] = 0
+        # c2 = c2 - AI
+    c2 = c2 - ai
 
     l1_tilde = l1 * (psi1(p, a, b, e) + 1)
 
