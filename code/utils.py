@@ -12,6 +12,8 @@ import warnings
 import pickle
 from collections.abc import Iterable
 
+
+
 def load_data(file_dir, file_name):
     return_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=0)
     cet_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=1)
@@ -181,8 +183,56 @@ def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs opt
     c3 = -l2 * (t - t0)
     return np.exp(c1 + c2 + c3)
 
+
+def partial_st(r, K, T, t0,
+                l1, a, b,
+                e, p, q,
+                Jbar, w, wbar,
+                k1, xi1, k2, xi2,
+                l2, l32, muV, SigmaV, Sigma,
+                ignore_gov, St):
+
+    l1_tilde = l1 * (psi1(p, a, b, e) + 1)
+    if isinstance(t0, Iterable) == False:
+        t0 = [t0]
+
+    M5 = int(np.floor(52 * T))
+    k_index = np.floor(t0 * M5 / T)
+
+    c3_list = []
+    for i in range(len(t0)):
+        t0i = t0[i]
+        ri = r[i]
+        c3 = 0
+        for j in range(int(k_index[i]) + 1, M5 + 1):
+
+            m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * (T/M5 * j -t0i) )
+            #ToDo: confirm ignore_gov can be done through value assiginment
+            if ignore_gov:
+                w_bar = 1
+                m31 = wbar * (1 - w) * p * K * St[i]**(p-1) / St[0]**p
+                m33 = 1
+                m34 = 1
+            else:
+                k_tilde = k1 + p * Sigma * xi1
+                l2_tilde = l2 * (psi2(muV, SigmaV, p) + 1)
+                muV_tilde = muV + p * SigmaV ** 2
+
+                m31 = w_bar * (1 - w) * K
+                m33 = E1(k_tilde, xi1,  T / M5 * j - t0i, 1)
+                m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, T / M5 * j - t0i, 1)
+
+
+            # [change Ti to T]
+            m35 = SupPr_Approx(l1_tilde, a, b + e * p, (j + 1) * T/M5 - t0i, Jbar)
+            m36 = SupPr_Approx(l1_tilde, a, b + e * p, j * T/M5 - t0i, Jbar)
+
+            c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
+
+        c3_list.append(c3)
+    return c3_list
 def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
-                       k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False):
+                       k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False, St = None):
     m11 = K * np.exp(-r * (T-t0))
     #m12 = 1 - SupPr(l1, a, b, T, Jbar)
     m12 = 1 - SupPr_Approx(l1, a, b, T - t0, Jbar)
@@ -201,10 +251,6 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
         ai_flag = (t0 > (i - 1) * (T / M)) & (t0 <= i * (T / M))
         ai_addvalue = c * K * (t0[ai_flag] - (i-1) * T / M) / (T / M) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[ai_flag], Jbar))
         ai[ai_flag] += ai_addvalue
-        # AI_flag = (t0 > (i-1) * (T/M)) & (t0 <= i * (T/M))
-        # AI = c * K * (t0 - (i-1) * T / M) / (T / M)
-        # AI[~AI_flag] = 0
-        # c2 = c2 - AI
     c2 = c2 - ai
 
     l1_tilde = l1 * (psi1(p, a, b, e) + 1)
@@ -217,21 +263,21 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
     k_index = np.floor(t0 * M5 /T)
 
     price_list = []
+    c3_list = []
     for i in range(len(t0)):
         t0i = t0[i]
         ri = r[i]
         c3 = 0
-        for j in range(int(k_index[i]), M5 + 1):
+        for j in range(int(k_index[i]) + 1, M5 + 1):
+        #for j in range(1, M5 + 1):
             #m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * Ti/M5 *j)
-            m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * (T/M5 * j -t0i) )
+            m32 = np.exp(- Q(p, q, ri, Sigma, l1, l2, a, b, e, muV, SigmaV) * (T/M5 * j -t0i))
             #ToDo: confirm ignore_gov can be done through value assiginment
             if ignore_gov:
                 w_bar = 1
-                m31 = w_bar * (1 - w) * K #ToDo: check 4.2.2 (St0/S0)**p
+                m31 = w_bar * (1 - w) * K * (St[i]/St[0])**p
                 m33 = 1
                 m34 = 1
-
-
             else:
                 k_tilde = k1 + p * Sigma * xi1
                 l2_tilde = l2 * (psi2(muV, SigmaV, p) + 1)
@@ -252,6 +298,10 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
             m36 = SupPr_Approx(l1_tilde, a, b + e * p, j * T/M5 - t0i, Jbar)
 
             c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
+            #print(i, j,  m31 * (m32 * m33 * m34 * (m35 - m36)))
+            # if j == 186:
+            #     print('negative')
+        c3_list.append(c3)
         price_list.append(c1[i] + c2[i] + c3)
 
     if len(t0) == 1:
@@ -302,7 +352,6 @@ def Q(p, q, r, sigma, l1, l2, a, b, e, muV, SigmaV): # q is dividend yield
 
 def Density_J(l, a, b ,t ,x):
     log_multiplier = -l * t
-    #first_m = l * b**a * t * x**(a-1) * np.exp(-b * x)/ sc.factorial(a-1)
     log_firstm = np.log(l) + a * np.log(b) +  np.log(t) + (a-1) * np.log(x) - b * x - np.log(sc.factorial(a-1))
 
     u_input1 = np.array([])
@@ -310,7 +359,6 @@ def Density_J(l, a, b ,t ,x):
     u_input3 = l * t * (b * x/a)**a
 
     log_firstu = np.array([float(log(hyper(u_input1, u_input2, i,  maxterms=10**6))) for i in u_input3])
-    #return np.log(multiplier) + np.log(first_m) + np.log(first_u)
     return log_multiplier + log_firstm + log_firstu
 
 def optimize_DensityJ(param, a = 1, T= 1/4, H = None):

@@ -4,9 +4,6 @@ import matplotlib.pyplot as plt
 from utils import *
 
 
-optimize_stock = False
-save_param = False
-
 
 
 def optimize_stock_casestudy(param, a = None, d = 1/252, x = None):
@@ -36,25 +33,34 @@ def Callback_CoCo_CaseStudy(Xi):
     # print('{0: 4d}     w:{1:.4f}     p:{2: .4f}    loss:{3:.4f}'.format(
     #         Nfeval, Xi[0], Xi[1], func_values))
     print('{0: 4d}     w:{1:.4f}     p:{2: .4f}     Jbar:{3: .4f}    loss:{4:.4f}'.format(
-                Nfeval, Xi[0], Xi[1], Xi[2], func_values))            
+                Nfeval, Xi[0], Xi[1], Xi[2], func_values))
     Nfeval += 1
 
+maturity_c_dict = {'case1': [10, 0.15/2],
+                  'case2': [5, 7.875/100/2],
+                  'case3': [5, 7/100/4],
+                  'case4': [7, 7.25/100/2], # has government intervention
+                  'case5': [5, 4.22/100]
+                  }
+process_case = 'case2'
+optimize_stock = True
+save_param = True
 
 
 
-file_name = 'Lloyd (09-11).xlsx'
-data = pd.read_excel('../data/Charlie0907/Lloyd (09-11) coc and stock.xlsx')
-data = data.set_index('Dates')
+data = pd.read_excel('../data/Charlie1124/'+ process_case + '/data-'+ process_case + '.xlsx')
+data = data.set_index('Date')
 data = data.dropna(how = 'any')
-St = data['Stock Price'].values
-RET = data['return without dividend (in percentage)']/100
+St = data['Stock'].values
+RET = data['return without dividend']/100
 
-r = data['interest rate r'].values/100
-coco_price = data['CoCo Price'].values
-maturity = pd.to_datetime('2019-11-23')
-T = 10
-#t0 = T - np.array((maturity - data.index).days.astype(int)/365) #ToDo: confirm 365 makes more sense
+r = data['r'].values/100
+coco_price = data['CoCo'].values
+T, c = maturity_c_dict[process_case]
+
+maturity = pd.to_datetime(data.index[0]) + pd.DateOffset(years = T)
 t0 = np.array(range(data.index.shape[0]))/252
+
 
 if optimize_stock:
     bounds = [(-1, 1), (0, 1), (0, 100), (-1, 1), (0, 1), (0, None), (0, 100), (0, 150)]
@@ -71,9 +77,9 @@ if optimize_stock:
     stock_param = pd.DataFrame(sorted_list, columns= ['loss', 'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'eta', 'l1', 'b', 'a'])
 
 if save_param:
-    stock_param.to_csv('../param/J_' + file_name.split('.')[0] + 'casestudy.csv', index=False)
+    stock_param.to_csv('../param/J_' + process_case + '.csv', index=False)
 else:
-    stock_param = pd.read_csv('../param/J_' + file_name.split('.')[0] + 'casestudy.csv')
+    stock_param = pd.read_csv('../param/J_' + process_case + '.csv', index=False)
 loss, mu, sigma, l2, muV, sigmaV, eta, l1, b, a = stock_param.iloc[0].values
 
 
@@ -85,9 +91,9 @@ plt.plot(RET_grids, Eval_Density, linestyle='--', label='Fitted')
 plt.plot(RET_grids, Data_DensityStock, label='Kernel')
 plt.legend()
 plt.show()
-#plt.savefig('../figure/Sdensity_' + file_name.split('_')[0] + '.jpg', dpi=600)
+#plt.savefig('../figure/Sdensity_' +  process_case  + '.jpg', dpi=600)
 
-def optimize_convertcoco(param, w_bar = None, r=None, q=None, K=None, T=None,t0 = None, c=None, Jbar=None, M=None, coco_price=None,  # data
+def optimize_convertcoco(param, w_bar = None, r=None, q=None, K=None, T=None,t0 = None, c=None, M=None, coco_price=None,  # data
                          l1=None, a=None, b=None,  # latent params
                          k1=None, xi1=None, k2=None, xi2=None, l32=None, ignore_gov=None,  # intervention params
                          sigma = None, l2=None, muV=None, sigmaV=None, e=None, St = None):
@@ -106,81 +112,75 @@ def optimize_convertcoco(param, w_bar = None, r=None, q=None, K=None, T=None,t0 
     return loss
 
 
-W = 0.05 # for llyods
-C0 = 6.3/100 # for llyods
-wbar = 1 # for llyods
-q = 0 # for llyods
 
-#K = 77.5158
+wbar = 1
+q = 0
 K = 100
-c = 0.15/2
 M = 20
-Jbar = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
 
-#Jbar_range = np.tan( np.pi * (1 - 2 * W)/2) + 1/ np.tan(np.pi * (1-C0))
 
 
 # intervention params
 k1, xi1, k2, xi2, l32, ignore_gov = [None, None, None, None, None, True]
-
-
-p = 0.7197
-w = 0.0435
-Jbar = 0.1811
-# p = 0.5826
-# w = 0.2428
-# Jbar = 0.2509
-
-
-hedge_ratio = partial_st(r, K, T, t0,
-                l1, a, b,
-                eta, p, q,
-                Jbar, w, wbar,
-                k1, xi1, k2, xi2,
-                l2, l32, muV, sigmaV, sigma,
-                ignore_gov = ignore_gov, St = St)
-
-
-#hedge_error = coco_price[1:]  - (coco_price[:-1] + hedge_ratio[1:] * (St[1:] - St[:-1]))
-
-
-
-
-model_price = equityconvert_coco(r, K, T, t0,
-                                 l1, a, b,
-                                 c, eta, p, q,
-                                 Jbar, M, w, wbar,
-                                 k1, xi1, k2, xi2,
-                                 l2, l32, muV, sigmaV, sigma,
-                                 ignore_gov=ignore_gov, St = St)
-
-hedge_error = coco_price[1:]  - (coco_price[:-1] + hedge_ratio[1:] * (St[1:] - St[:-1]))
-
-
-
-import matplotlib.dates as mdates
-fig= plt.figure(figsize = (8,6))
-ax = fig.add_subplot(111)
-ax.plot(data.index, coco_price, label = 'actual',  linewidth=2.0)
-ax.plot(data.index, model_price,  label = 'estimated', linewidth=2.0)
-ax.legend()
-ax.set_ylabel('CoCo price')
-ax.set_xlabel('Date')
-ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
-ax.set_title('Llyods Banking Group CoCo (11/23/2009 -- 12/30/2011)')
-fig.savefig('../figure/llyods/llyods_casestudy.png', format='png', dpi=200)
-plt.show()
-
-
-# init, Nfeval = [[1, 0.49], 1]
-# bounds = [(0, 1), (0, 1)]
 init, Nfeval = [[0.3, 0.49, Jbar], 1]
 bounds = [(0, 1), (0, 1), (0.01, 4.9)]
 
-res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, Jbar, M, coco_price,  # data
+res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, M, coco_price,  # data
                          l1, a, b,  # latent params
                          k1, xi1, k2, xi2, l32, ignore_gov,  # intervention params
                          sigma, l2, muV, sigmaV, eta, St),
                method='Nelder-Mead', options={'maxiter': 100},
                callback=Callback_CoCo_CaseStudy, bounds=bounds, tol=0.001)
 print('end')
+
+
+
+
+
+
+
+
+# [plotting]
+# p = 0.7197
+# w = 0.0435
+# Jbar = 0.1811
+# # p = 0.5826
+# # w = 0.2428
+# # Jbar = 0.2509
+#
+#
+# hedge_ratio = partial_st(r, K, T, t0,
+#                 l1, a, b,
+#                 eta, p, q,
+#                 Jbar, w, wbar,
+#                 k1, xi1, k2, xi2,
+#                 l2, l32, muV, sigmaV, sigma,
+#                 ignore_gov = ignore_gov, St = St)
+#
+#
+#
+#
+# model_price = equityconvert_coco(r, K, T, t0,
+#                                  l1, a, b,
+#                                  c, eta, p, q,
+#                                  Jbar, M, w, wbar,
+#                                  k1, xi1, k2, xi2,
+#                                  l2, l32, muV, sigmaV, sigma,
+#                                  ignore_gov=ignore_gov, St = St)
+#
+# hedge_error = coco_price[1:]  - (coco_price[:-1] + hedge_ratio[1:] * (St[1:] - St[:-1]))
+#
+#
+#
+# import matplotlib.dates as mdates
+# fig= plt.figure(figsize = (8,6))
+# ax = fig.add_subplot(111)
+# ax.plot(data.index, coco_price, label = 'actual',  linewidth=2.0)
+# ax.plot(data.index, model_price,  label = 'estimated', linewidth=2.0)
+# ax.legend()
+# ax.set_ylabel('CoCo price')
+# ax.set_xlabel('Date')
+# ax.xaxis.set_major_formatter(mdates.DateFormatter('%m-%Y'))
+# ax.set_title('Llyods Banking Group CoCo (11/23/2009 -- 12/30/2011)')
+# fig.savefig('../figure/llyods/llyods_casestudy.png', format='png', dpi=200)
+# plt.show()

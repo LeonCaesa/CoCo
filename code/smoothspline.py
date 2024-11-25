@@ -38,9 +38,12 @@ a_grids = np.random.choice(5, data_size) + 1
 # end = time.time()
 # print(end-start)
 
-if os.path.exists('./spline_approx.csv'):
-    Pr_table = pd.read_csv('./spline_approx.csv')
-    func_values = Pr_table.iloc[:, -1].values
+# if os.path.exists('./spline_approx.csv'):
+#     Pr_table = pd.read_csv('./spline_approx.csv')
+if os.path.exists('./spline_approx_loop_changed0919.csv'):
+    Pr_table = pd.read_csv('./spline_approx_loop_changed0919.csv')
+    #func_values = Pr_table.iloc[:, -1].values
+    func_values = Pr_table.iloc[:, -2].values
     l1_grids = Pr_table.iloc[:, 0].values
     b_grids = Pr_table.iloc[:, 1].values
     t_grids = Pr_table.iloc[:, 2].values
@@ -63,8 +66,8 @@ else:
 
 #L1_grids, B_grids, T_grids, X_grids = np.meshgrid(l1_grids, b_grids, [0.25] * data_size, x_grids)
 
-if os.path.exists('./SupPr.pkl'):
-    with open('./SupPr.pkl', 'rb') as inp:
+if os.path.exists('./SupPr_loop.pkl'):
+    with open('./SupPr_loop.pkl', 'rb') as inp:
         spline = pickle.load(inp)
 else:
     na_flag = ~np.isnan(func_values)
@@ -79,41 +82,44 @@ func_approx = spline(l1_grids, a_grids, b_grids, t_grids, x_grids)
 #func_approx = [Z[i, i ,i , i] for i in range(data_size)]
 
 # [time plot]
-import time
-SupPr_time = {'actual':[],
-              'approx':[]}
-eval_index = np.random.randint(0, data_size, 100)
+# import time
+# SupPr_time = {'actual':[],
+#               'approx':[]}
+# eval_index = np.random.randint(0, data_size, 100)
+#
+# for i in eval_index:
+#     start = time.time()
+#     SupPr_i = SupPr(l1_grids[i], int(a_grids[i]), b_grids[i], t_grids[i], x_grids[i])
+#     end = time.time()
+#     SupPr_time['actual'].append(end - start)
+#
+#
+#     start_spline = time.time()
+#     SupPr_approxi = spline(l1_grids[i], a_grids[i], b_grids[i], t_grids[i], x_grids[i])
+#     end_spline = time.time()
+#     SupPr_time['approx'].append(end_spline - start_spline)
+#
+# fig, ax = plt.subplots()
+# ax.boxplot(SupPr_time.values())
+# plt.ylabel('Eval time (s)')
+# ax.set_xticklabels(SupPr_time.keys())
+# plt.savefig('../figure/approx_time.png', dpi=300)
 
-for i in eval_index:
-    start = time.time()
-    SupPr_i = SupPr(l1_grids[i], int(a_grids[i]), b_grids[i], t_grids[i], x_grids[i])
-    end = time.time()
-    SupPr_time['actual'].append(end - start)
-
-
-    start_spline = time.time()
-    SupPr_approxi = spline(l1_grids[i], a_grids[i], b_grids[i], t_grids[i], x_grids[i])
-    end_spline = time.time()
-    SupPr_time['approx'].append(end_spline - start_spline)
-
-fig, ax = plt.subplots()
-ax.boxplot(SupPr_time.values())
-plt.ylabel('Eval time (s)')
-ax.set_xticklabels(SupPr_time.keys())
-plt.savefig('../figure/approx_time.png', dpi=300)
-
-avg_times = np.mean(np.array(SupPr_time['actual']))/ np.mean(np.array(SupPr_time['approx']))
+# avg_times = np.mean(np.array(SupPr_time['actual']))/ np.mean(np.array(SupPr_time['approx']))
 
 # [approx plot]
-param_names = [r'$\lambda_1$', r'$\alpha$', r'$\beta$', 't', 'x']
+param_names = [r'$\lambda_1$', r'$\alpha$', r'$\beta$', r'$t$', r'$x$']
 param_list = [l1_grids, a_grids, b_grids, t_grids, x_grids]
 
+func_values[func_values>=1] = 1
 for i in range(len(param_names)):
     fig = plt.figure(figsize=(6,6))
     plt.plot(param_list[i], func_values, 'o', label = 'actual', fillstyle='none', alpha=0.8)
     plt.plot(param_list[i], func_approx, '+', label = 'approx', alpha=0.8)
     plt.xlabel(param_names[i])
-    plt.ylabel(r'$P(\lambda_1, \alpha, \beta, t, x)$')
+    plt.ylabel(r'$P(t, x; \lambda_1, \alpha, \beta)$')
+    if i == 1:
+        plt.xticks([1,2 ,3, 4,5])
     plt.legend()
     fig.tight_layout()
     plt.savefig('../figure/spline_' + param_names[i] + '.png', dpi=300)

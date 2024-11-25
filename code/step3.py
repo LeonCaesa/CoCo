@@ -27,9 +27,9 @@ if __name__ == '__main__':
 
 
     # ToDo: confirm what is W and C0, and the range of Jbar
-    W = 0.1
-    C0 = 0.11
-    Jbar = np.tan(np.pi * (1 - 2 * W) / 2) + 1 / np.tan(np.pi * (1 - C0))
+    # W = 0.1
+    # C0 = 0.11
+    # Jbar = np.tan(np.pi * (1 - 2 * W) / 2) + 1 / np.tan(np.pi * (1 - C0))
 
     # [loading data]
     oneyear_cds = pd.read_csv('../data/CSGN1YEUAM=R Overview.csv').set_index('Date')  # ['Price']

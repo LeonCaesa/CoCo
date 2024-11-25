@@ -6,8 +6,38 @@ import pandas as pd
 import time
 
 
+def optimize_convertcoco(param, r=None, q=None, K=None, T=None, t0=None, c=None, M=None,
+                         coco_price=None,  # data
+                         l1=None, a=None, b=None,  # latent params
+                         k1=None, xi1=None, k2=None, xi2=None, l32=None, ignore_gov=None,  # intervention params
+                         sigma=None, l2=None, muV=None, sigmaV=None, e=None, St=None):
+    w, p, Jbar, w_bar = param
+    model_price = equityconvert_coco(r, K, T, t0,
+                                     l1, a, b,
+                                     c, e, p, q,
+                                     Jbar, M, w, w_bar,
+                                     k1, xi1, k2, xi2,
+                                     l2, l32, muV, sigmaV, sigma,
+                                     ignore_gov, St)
+
+    loss = np.sqrt(np.mean((model_price - coco_price) ** 2))
+    return loss
+
+def Callback_CoCo_CaseStudy(Xi):
+    global Nfeval, r, q, K, T, t0, c, Jbar, M, coco_price, l1, a, b, k1, xi1, k2, xi2, l32, ignore_gov, sigma, l2, muV, sigmaV, eta, St
+    func_values = optimize_convertcoco(Xi, r=r, q=q, K=K, T=T, t0=t0, c=c, Jbar=Jbar, M=M, coco_price=coco_price,
+                         l1=l1, a=a, b=b,  # latent params
+                         k1=k1, xi1=xi1, k2=k2, xi2=xi2, l32=l32, ignore_gov=ignore_gov,  # intervention params
+                         sigma=sigma, l2=l2, muV=muV, sigmaV=sigmaV, e=eta, St = St)
+
+    # print('{0: 4d}     w:{1:.4f}     p:{2: .4f}    loss:{3:.4f}'.format(
+    #         Nfeval, Xi[0], Xi[1], func_values))
+    print('{0: 4d}     w:{1:.4f}     p:{2: .4f}     Jbar:{3: .4f}    wbar:{4: .4f}    loss:{5:.4f}'.format(
+                Nfeval, Xi[0], Xi[1], Xi[2], Xi[3], func_values))
+    Nfeval += 1
 
 if __name__ == '__main__':
+    # [Read stock parameters]
     # file_name = 'Lloyds_Data_13-23.xlsx'
     file_name = 'Credit_Suisse_Data_13-23.xlsx'
     # file_name = 'China_Construction_Bank_Data_13-23.xlsx'
@@ -19,41 +49,33 @@ if __name__ == '__main__':
      l2_a3, muV_a3, sigmaV_a3, e_a3,
      k1, xi1, k2, xi2, l32) = list(intervention_param.values.squeeze())
 
-    def optimize_convertcoco(param, r= None, K = None, T = None, c = None, Jbar = None, M = None, coco_price = None, # data
-                        l1=None, a=None, b=None, # latent params
-                        k1 = None, xi1 = None, k2= None, xi2 = None, l32 = None, ignore_gov = None,# intervention params
-                        l2 = None, muV = None, sigmaV = None, e = None):
-        w, w_bar, p = param
+    # [Read coco data]
+    data = pd.read_excel('../data/Charlie1124/case4/data-case4.xlsx')
+    data = data.set_index('Date')
+    data = data.dropna(how='any')
+    St = data['Stock'].values
+    RET = data['return without dividend'] / 100
 
-        model_price = equityconvert_coco(r, K, T,
-                                         l1, a, b,
-                                         c, e, p, q,
-                                         Jbar, M, w, w_bar,
-                                         k1, xi1, k2, xi2,
-                                         l2, l32, muV, sigmaV,
-                                         ignore_gov = ignore_gov)
+    r = data['r'].values / 100
+    coco_price = data['CoCo'].values
+    T,c = [7, 7.25/100/2]
+    maturity = pd.to_datetime(data.index[0]) + pd.DateOffset(years=T)
+    t0 = np.array(range(data.index.shape[0])) / 252
 
-        loss = np.abs(model_price - coco_price)/ coco_price
-        return np.mean(loss)
-
-
-    init, Nfeval = [[0.3, 0.3, 0.3], 1]
-    bounds = [(0, 1), (0, 1), (0, 1)]
-    res = minimize(optimize_convertcoco, init, args=(l2_a3, muV_a3, sigmaV_a3, mat_values, 0, cds_values),
+    K = 100
+    M = 14
+    ignore_gov = False
+    q = 0# ToDo: check
 
 
+    init, Nfeval = [[0.3, 0.3, 0.3, 0.3], 1]
+    bounds = [(0, 1), (0, 1), (0, 1), (0.1, 1)]
+    res = minimize(optimize_convertcoco, init, args=( r, q, K, T, t0, c, M, coco_price,  # data
+                                                     l1_a3, a3, b_a3,  # latent params
+                                                     k1, xi1, k2, xi2, l32, ignore_gov,  # intervention params
+                                                     sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, St),
                    method='Nelder-Mead', options={'maxiter': 100},
-                   callback = None, bounds=bounds, tol=0.001)
+                   callback=Callback_CoCo_CaseStudy, bounds=bounds, tol=0.001)
 
 
-    start = time.time()
-    wd_value = writedown_coco(r, K, T, l1_a3, a3, b_a3, c, Jbar, M, w, wbar, k1, xi1, k2, xi2, l2_a3, l32, muV_a3, sigmaV_a3)
-    end = time.time()
-    # print(wd_value, end - start)
-
-    p = 0.6
-    start = time.time()
-    ec_value = equityconvert_coco(r, K, T, l1_a3, a3, b_a3, c, e_a3, p, q, Jbar, M, w, wbar, k1, xi1, k2, xi2, l2_a3, l32, muV_a3, sigmaV_a3, sigma_a3) #ToDo: CoCo w.r.t. p
-    end = time.time()
-    print(ec_value, end - start)
     print('end')
