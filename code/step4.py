@@ -24,11 +24,12 @@ def optimize_convertcoco(param, r=None, q=None, K=None, T=None, t0=None, c=None,
     return loss
 
 def Callback_CoCo_CaseStudy(Xi):
-    global Nfeval, r, q, K, T, t0, c, Jbar, M, coco_price, l1, a, b, k1, xi1, k2, xi2, l32, ignore_gov, sigma, l2, muV, sigmaV, eta, St
-    func_values = optimize_convertcoco(Xi, r=r, q=q, K=K, T=T, t0=t0, c=c, Jbar=Jbar, M=M, coco_price=coco_price,
-                         l1=l1, a=a, b=b,  # latent params
+    global Nfeval, r, q, K, T, t0, c, Jbar, M, coco_price, l1_a3, a3, b_a3, k1, xi1, k2, xi2, l32, ignore_gov, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, St
+    func_values = optimize_convertcoco(Xi, r=r, q=q, K=K, T=T, t0=t0, c=c,  M=M, coco_price=coco_price,
+                         l1=l1_a3, a=a3, b=b_a3,  # latent params
                          k1=k1, xi1=xi1, k2=k2, xi2=xi2, l32=l32, ignore_gov=ignore_gov,  # intervention params
-                         sigma=sigma, l2=l2, muV=muV, sigmaV=sigmaV, e=eta, St = St)
+                         sigma=sigma_a3, l2=l2_a3, muV=muV_a3, sigmaV=sigmaV_a3, e=e_a3, St = St)
+
 
     # print('{0: 4d}     w:{1:.4f}     p:{2: .4f}    loss:{3:.4f}'.format(
     #         Nfeval, Xi[0], Xi[1], func_values))
@@ -52,6 +53,9 @@ if __name__ == '__main__':
     # [Read coco data]
     data = pd.read_excel('../data/Charlie1124/case4/data-case4.xlsx')
     data = data.set_index('Date')
+    date_flag = data.index.isin(pd.date_range(start='3/1/2023', end='3/17/2023'))
+    data = data[date_flag]
+
     data = data.dropna(how='any')
     St = data['Stock'].values
     RET = data['return without dividend'] / 100
