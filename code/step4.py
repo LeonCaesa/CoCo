@@ -53,7 +53,8 @@ if __name__ == '__main__':
     # [Read coco data]
     data = pd.read_excel('../data/Charlie1124/case4/data-case4.xlsx')
     data = data.set_index('Date')
-    date_flag = data.index.isin(pd.date_range(start='3/1/2023', end='3/17/2023'))
+    #date_flag = data.index.isin(pd.date_range(start='3/1/2023', end='3/17/2023'))
+    date_flag = data.index.isin(pd.date_range(start='1/1/2020', end='3/17/2023'))
     data = data[date_flag]
 
     data = data.dropna(how='any')
