@@ -18,11 +18,11 @@ if __name__ == '__main__':
     # file_name = 'Lloyds_Data_13-23.xlsx'
     file_name = 'Credit_Suisse_Data_13-23.xlsx'
     # file_name = 'China_Construction_Bank_Data_13-23.xlsx'
-    save_fig = False
-    save_param = False
+    save_fig = True
+    save_param = True
 
 
-    stock_param = pd.read_csv('../param/Stock_' + file_name.split('.')[0] + '.csv')
+    stock_param = pd.read_csv('../param/Stock1216_' + file_name.split('.')[0] + '.csv')
     loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = list(stock_param.values.squeeze())
 
 
@@ -57,7 +57,7 @@ if __name__ == '__main__':
     plt.xticks(rotation=45)
     plt.tight_layout()
     if save_fig:
-        plt.savefig('../figure/CDS_' + file_name.split('_')[0] + '.jpg', dpi=600)
+        plt.savefig('../figure/CDS1216_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
 
     # [optimization part]
@@ -77,6 +77,8 @@ if __name__ == '__main__':
                                           'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'e',
                                           'k1', 'xi1', 'k2', 'xi2', 'l32']).T
 
-        intervention_param.to_csv('../param/Intervention_' + file_name.split('.')[0] + '.csv', index=False)
+        intervention_param.to_csv('../param/Intervention1216_' + file_name.split('.')[0] + '.csv', index=False)
 
     loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, k1, xi1, k2, xi2, l32 = list(intervention_param.values.squeeze())
+
+    print('done')

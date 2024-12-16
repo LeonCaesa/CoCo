@@ -15,12 +15,17 @@ if __name__ == '__main__':
     # file_name = 'Lloyds_Data_13-23.xlsx'
     file_name = 'Credit_Suisse_Data_13-23.xlsx'
     # file_name = 'China_Construction_Bank_Data_13-23.xlsx'
-    return_data, cet_data, B, J, B_date = load_data('../data', file_name)
+    #date_range = ['1/1/2020', '3/17/2023']
+    date_range = None
+    return_data, cet_data, B, J, B_date = load_data('../data', file_name, date_range=date_range)
 
-    save_fig = False
-    save_param = False
+    save_fig = True
+    save_param = True
     if file_name == 'Credit_Suisse_Data_13-23.xlsx':
         RET_data = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)
+        date_range = ['1/1/2020', '3/17/2023']
+        date_flag = RET_data['Names Date'].isin(pd.date_range(start = date_range[0], end = date_range[1]))
+        RET_data = RET_data[date_flag]
         S_name = 'Price or Bid/Ask Average'
         RET = RET_data['Log-returns (without Dividends)'].values[:2570]
     else:
@@ -28,20 +33,6 @@ if __name__ == '__main__':
         S_name = 'Price or Bid/Ask Average'
         RET = RET_data['Log-returns without dividends'].values
 
-
-
-    return_data, cet_data, B, J, B_date = load_data('../data', file_name)
-
-    save_fig = False
-    save_param = False
-    if file_name == 'Credit_Suisse_Data_13-23.xlsx':
-        RET_data = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)
-        S_name = 'Price or Bid/Ask Average'
-        RET = RET_data['Log-returns (without Dividends)'].values[:2570]
-    else:
-        RET_data = pd.read_excel(os.path.join('../data', file_name), sheet_name=0)
-        S_name = 'Price or Bid/Ask Average'
-        RET = RET_data['Log-returns without dividends'].values
 
     # [Plotting --- S figure]
     S_data = RET_data[[S_name, 'Names Date']]
@@ -49,17 +40,17 @@ if __name__ == '__main__':
     S_data = S_data.set_index('Date')
     S_data.plot(label='S')
     if save_fig:
-        plt.savefig('../figure/S_' + file_name.split('_')[0] + '.jpg', dpi=600)
+        plt.savefig('../figure/S1216_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
 
     # [Plotting --- B figure]
     plt.plot(pd.to_datetime(B_date), B, label='B')
     plt.legend()
     if save_fig:
-        plt.savefig('../figure/B_' + file_name.split('_')[0] + '.jpg', dpi=600)
+        plt.savefig('../figure/B1216_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
     # [load parameters from step1]
-    param_table = pd.read_csv('../param/J_' + file_name.split('.')[0] + '.csv')
+    param_table = pd.read_csv('../param/J1216_' + file_name.split('.')[0] + '.csv')
     loss, l1_a3, b_a3, a3 = param_table.iloc[0]
 
 
@@ -73,7 +64,7 @@ if __name__ == '__main__':
     stock_param = pd.DataFrame([stock_res.fun, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3], index = ['loss', 'l1', 'b', 'a', 'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'e']).T
 
     if save_param:
-        stock_param.to_csv('../param/Stock_' + file_name.split('.')[0] + '.csv', index = False)
+        stock_param.to_csv('../param/Stock1216_' + file_name.split('.')[0] + '.csv', index = False)
     loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3 = list(stock_param.values.squeeze())
 
     # [Density Plot]
@@ -85,5 +76,7 @@ if __name__ == '__main__':
     plt.plot(RET_grids, Eval_Density_a3, linestyle='--', label='Fitted')
     plt.legend()
     if save_fig:
-        plt.savefig('../figure/Sdensity_' + file_name.split('_')[0] + '.jpg', dpi=600)
+        plt.savefig('../figure/Sdensity1216_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
+
+    print('Done')

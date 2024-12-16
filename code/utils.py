@@ -14,9 +14,15 @@ from collections.abc import Iterable
 
 
 
-def load_data(file_dir, file_name):
+def load_data(file_dir, file_name, date_range = None):
     return_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=0)
     cet_data = pd.read_excel(os.path.join(file_dir, file_name), sheet_name=1)
+    if date_range:
+        date_flag = return_data['Names Date'].isin(pd.date_range(start = date_range[0], end = date_range[1]))
+        return_data = return_data[date_flag]
+        date_flag = pd.to_datetime(cet_data['Names Date']).isin(pd.date_range(start = date_range[0], end = date_range[1]))
+        cet_data = cet_data[date_flag]
+
 
     B = cet_data['CET-1 ratio (phase-in)'].values/100
     J = np.tan(np.pi * 0.5 - np.pi * B) + 1 / np.tan(np.pi * (1 - B[0]))

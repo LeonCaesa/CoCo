@@ -42,10 +42,10 @@ if __name__ == '__main__':
     # file_name = 'Lloyds_Data_13-23.xlsx'
     file_name = 'Credit_Suisse_Data_13-23.xlsx'
     # file_name = 'China_Construction_Bank_Data_13-23.xlsx'
-    save_fig = False
-    save_param = False
+    save_fig = True
+    save_param = True
 
-    intervention_param = pd.read_csv('../param/Intervention_' + file_name.split('.')[0] + '.csv')
+    intervention_param = pd.read_csv('../param/Intervention1216_' + file_name.split('.')[0] + '.csv')
     (loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3,
      l2_a3, muV_a3, sigmaV_a3, e_a3,
      k1, xi1, k2, xi2, l32) = list(intervention_param.values.squeeze())
@@ -72,8 +72,9 @@ if __name__ == '__main__':
     ignore_gov = False
     q = 0# ToDo: check
 
+    # w, p, Jbar, w_bar = param
 
-    init, Nfeval = [[0.3, 0.3, 0.3, 0.3], 1]
+    init, Nfeval = [[0.2347, 0.2844, 0.4060, 0.3365], 1]
     bounds = [(0, 1), (0, 1), (0, 1), (0.1, 1)]
     res = minimize(optimize_convertcoco, init, args=( r, q, K, T, t0, c, M, coco_price,  # data
                                                      l1_a3, a3, b_a3,  # latent params
@@ -81,6 +82,12 @@ if __name__ == '__main__':
                                                      sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, St),
                    method='Nelder-Mead', options={'maxiter': 100},
                    callback=Callback_CoCo_CaseStudy, bounds=bounds, tol=0.001)
+    coco_param = pd.DataFrame([res.fun, *res.x],
+                              columns=['loss', 'p', 'w', 'Jbar', 'wbar'])
+    if save_param:
+        coco_param.to_csv('../param/CoCo1216_case4.csv', index=False)
+
+
 
 
     print('end')

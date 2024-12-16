@@ -36,16 +36,17 @@ def Callback_CoCo_CaseStudy(Xi):
                 Nfeval, Xi[0], Xi[1], Xi[2], func_values))
     Nfeval += 1
 
-maturity_c_dict = {'case1': [10, 0.15/2],
-                  'case2': [5, 7.875/100/2],
-                  'case3': [5, 7/100/4],
-                  'case4': [7, 7.25/100/2], # has government intervention
-                  'case5': [5, 4.22/100]
+maturity_c_dict = {'case1': [10, 0.15/2, 20],
+                  'case2': [5, 7.875/100/2, 10],
+                  'case3': [5, 7/100/4, 20],
+                  'case4': [7, 7.25/100/2, 14], # has government intervention
+                  'case5': [5, 4.22/100, 5]
                   }
-optimize_stock = True
-save_param = True
+optimize_stock = False
+save_param = False
 
-for process_case in ['case3', 'case5']:
+for process_case in ['case5']:
+
 
     data = pd.read_excel('../data/Charlie1124/'+ process_case + '/data-'+ process_case + '.xlsx')
     data = data.set_index('Date')
@@ -55,7 +56,7 @@ for process_case in ['case3', 'case5']:
     
     r = data['r'].values/100
     coco_price = data['CoCo'].values
-    T, c = maturity_c_dict[process_case]
+    T, c, M = maturity_c_dict[process_case]
     
     maturity = pd.to_datetime(data.index[0]) + pd.DateOffset(years = T)
     t0 = np.array(range(data.index.shape[0]))/252
@@ -78,7 +79,7 @@ for process_case in ['case3', 'case5']:
     if save_param:
         stock_param.to_csv('../param/J_' + process_case + '.csv', index=False)
     else:
-        stock_param = pd.read_csv('../param/J_' + process_case + '.csv', index=False)
+        stock_param = pd.read_csv('../param/J_' + process_case + '.csv')
     loss, mu, sigma, l2, muV, sigmaV, eta, l1, b, a = stock_param.iloc[0].values
     
     
@@ -109,13 +110,13 @@ for process_case in ['case3', 'case5']:
         #loss = np.mean(np.abs(model_price - coco_price) / coco_price)
         loss = np.sqrt(np.mean((model_price - coco_price) ** 2))
         return loss
-    
-    
-    
+
+
+    save_param = True
     wbar = 1
     q = 0
     K = 100
-    M = 20
+    
     
     
     
@@ -130,6 +131,12 @@ for process_case in ['case3', 'case5']:
                              sigma, l2, muV, sigmaV, eta, St),
                    method='Nelder-Mead', options={'maxiter': 100},
                    callback=Callback_CoCo_CaseStudy, bounds=bounds, tol=0.001)
+
+    coco_param = pd.DataFrame([res.fun, *res.x, wbar],
+                               columns=['loss', 'p', 'w', 'Jbar', 'wbar'])
+    if save_param:
+        coco_param.to_csv('../param/CoCo_' + process_case + '.csv', index=False)
+
     print(res)
     print('end')
 

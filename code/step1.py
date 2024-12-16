@@ -13,10 +13,11 @@ if __name__ == '__main__':
     # file_name = 'Lloyds_Data_13-23.xlsx'
     file_name = 'Credit_Suisse_Data_13-23.xlsx'
     # file_name = 'China_Construction_Bank_Data_13-23.xlsx'
-    save_fig = False
-    save_param = False
+    save_fig = True
+    save_param = True
+    date_range = ['1/1/2020', '3/17/2023']
 
-    return_data, cet_data, B, J, B_date = load_data('../data', file_name)
+    return_data, cet_data, B, J, B_date = load_data('../data', file_name, date_range = date_range)
     Diff_J = np.diff(J)
     H = Diff_J - min(Diff_J) + 0.01
 
@@ -71,9 +72,12 @@ if __name__ == '__main__':
     plt.plot(H_grids, Eval_JDensity_a3, linestyle='--', label='Fitted')
     plt.legend()
     if save_fig:
-        plt.savefig('../figure/Hdensity_' + file_name.split('_')[0] + '.jpg', dpi=600)
+        plt.savefig('../figure/Hdensity1216_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
 
 
     if save_param:
-        param_table.to_csv('../param/J_' + file_name.split('.')[0] + '.csv', index = False)
+        param_table.to_csv('../param/J1216_' + file_name.split('.')[0] + '.csv', index = False)
+
+
+    print('done')
