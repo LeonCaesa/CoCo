@@ -20,8 +20,8 @@ def load_data(file_dir, file_name, date_range = None):
     if date_range:
         date_flag = return_data['Names Date'].isin(pd.date_range(start = date_range[0], end = date_range[1]))
         return_data = return_data[date_flag]
-        date_flag = pd.to_datetime(cet_data['Names Date']).isin(pd.date_range(start = date_range[0], end = date_range[1]))
-        cet_data = cet_data[date_flag]
+        #date_flag = pd.to_datetime(cet_data['Names Date']).isin(pd.date_range(start = date_range[0], end = date_range[1]))
+        cet_data = cet_data#[date_flag]
 
 
     B = cet_data['CET-1 ratio (phase-in)'].values/100
@@ -80,7 +80,6 @@ def SupPr(l1, a, b, t, x):
 #    density_value.append(int2_func(input_))
 # plt.plot(range(100), density_value)
 # plt.show()
-
     # print(int2_func(np.array([5])))
     c2 = -quad(int2_func, 0, x + l1 * a * t / b)[0]
 
@@ -113,6 +112,8 @@ def SupPr_Approx(l1, a, b, t, x):
     #with open('./SupPr_loop.pkl', 'rb') as inp:
     with open('./SupPr_loop.pkl', 'rb') as inp:
         spline = pickle.load(inp)
+    if isinstance(x, Iterable) and isinstance(t, Iterable):
+        return np.array([spline(l1, a, b, t[i], x[i]) for i in range(len(t))])
     if isinstance(t, Iterable):
         return np.array([spline(l1, a, b, ti, x) for ti in t])
     return spline(l1, a, b, t, x)
@@ -178,7 +179,8 @@ def E2(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0): #ToDo: k2, xi2, l32 needs opt
     #     return 1
     m11 = -u * l32
     m12 = 1 - np.exp(-k2 * (t - t0))
-    c1 = - m11 * m12 / k2
+    #c1 = - m11 * m12 / k2
+    c1 = m11 * m12 / k2
 
     c2 = 0
     for i in range(1, 5):
@@ -238,11 +240,34 @@ def partial_st(r, K, T, t0,
         c3_list.append(c3)
     return c3_list
 def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
-                       k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma, ignore_gov = False, St = None):
+                       k1, xi1, k2, xi2, l2, l32, muV, SigmaV, Sigma,
+                       ignore_gov = False, St = None, gamma =1, cet = None):
+    if cet is not None:
+        Jt0 = np.tan(np.pi * (1 - 2 * cet) / 2) + 1 / np.tan(np.pi * (1 - cet[0])) + l1 * a * t0 / b
+        Jbar = Jbar - Jt0 + l1 * a * t0 / b
+    #    m12 = np.array([1 - SupPr_Approx(l1, a, b, T - t0, Jbari) for Jbari in Jbar])
+
+    if ignore_gov:
+        m33 = 1
+        m34 = 1
+    else:
+        #E1(k1, xi1, t, u, t0=0, l31r=0)
+        m33 = [E1(k1, xi1, T, 1, t0=t0i) for t0i in t0]
+        #(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0)
+        m34 = [E2(k2, xi2, l2, l32, muV, SigmaV, T, 1, t0=t0i) for t0i in t0]
+
+# import matplotlib.pyplot as plt
+# t0i = t0[0]
+# Ti_grids = np.linspace(t0i, T, 100)
+# m34_list = [E2(k2, xi2, l2, l32, muV, SigmaV, Ti, 1, t0=t0i) for Ti in Ti_grids]
+# plt.plot(Ti_grids, m34_list)
+
     m11 = K * np.exp(-r * (T-t0))
     #m12 = 1 - SupPr(l1, a, b, T, Jbar)
     m12 = 1 - SupPr_Approx(l1, a, b, T - t0, Jbar)
-    c1 = m11 * m12
+    m12[Jbar<0] = 0
+
+    c1 = m11 * m12 * m33 * m34
 
     c2 = np.zeros(np.shape(t0))
     ai = np.zeros(np.shape(t0))
@@ -250,9 +275,18 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
         #c2 += c * np.exp(-r * k * (T / M)) * (1 - SupPr(l1, a, b, k * T / M, Jbar))
         ti_minus_t0 = i * T / M - t0
         #c2_addvalue = c * K * np.exp(-r * (i * T/M - t0) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0, Jbar))) # ToDo: check 4.2.2 ti =t0?
-        valid_ti_flag = ti_minus_t0>=0
+        valid_ti_flag = ti_minus_t0>0
+
+        if ignore_gov:
+            m33 = 1
+            m34 = 1
+        else:
+            m33 = [E1(k1, xi1, i * T / M, 1, t0=t0i) for t0i in t0[valid_ti_flag]]
+            # (k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0)
+            m34 = [E2(k2, xi2, l2, l32, muV, SigmaV, i * T / M, 1, t0=t0i) for t0i in t0[valid_ti_flag]]
+
         c2_addvalue = c * K * np.exp(-r[valid_ti_flag] * (ti_minus_t0[valid_ti_flag])) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[valid_ti_flag], Jbar)) # ToDo: check 4.2.2 ti =t0?
-        c2[valid_ti_flag] += c2_addvalue
+        c2[valid_ti_flag] += c2_addvalue * m33 * m34
 
         ai_flag = (t0 > (i - 1) * (T / M)) & (t0 <= i * (T / M))
         ai_addvalue = c * K * (t0[ai_flag] - (i-1) * T / M) / (T / M) * (1 - SupPr_Approx(l1, a, b, ti_minus_t0[ai_flag], Jbar))
@@ -289,26 +323,34 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
                 l2_tilde = l2 * (psi2(muV, SigmaV, p) + 1)
                 muV_tilde = muV + p * SigmaV ** 2
 
-                m31 = w_bar * (1 - w) * K
+                m31 = w_bar * (1 - w) * K * (St[i]/St[0])**p
                 # m33 = E1(k_tilde, xi1,  j * Ti/M5, 1)
                 # m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, j * Ti/M5, 1)
 
-                m33 = E1(k_tilde, xi1,  T / M5 * j - t0i, 1)
-                m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, T / M5 * j - t0i, 1)
+                m33 = E1(k_tilde, xi1,  T / M5 * j, 1 - p * gamma, t0 = t0i)
+                m34 = E2(k2, xi2, l2_tilde, l32, muV_tilde, SigmaV, T / M5 * j, 1-p*gamma, t0 = t0i)
 
 
             # m35 = SupPr_Approx(l1_tilde, b + e * p, (j + 1) * Ti/M5, Jbar, a)
             # m36 = SupPr_Approx(l1_tilde, b + e * p, j * Ti/M5, Jbar, a)
             # [change Ti to T]
-            m35 = SupPr_Approx(l1_tilde, a, b + e * p, (j + 1) * T/M5 - t0i, Jbar)
-            m36 = SupPr_Approx(l1_tilde, a, b + e * p, j * T/M5 - t0i, Jbar)
+            if cet is not None:
+                m35 = SupPr_Approx(l1_tilde, a, b + e * p, (j + 1) * T / M5 - t0i, Jbar[i])
+                m36 = SupPr_Approx(l1_tilde, a, b + e * p, j * T / M5 - t0i, Jbar[i])
+            else:
+                m35 = SupPr_Approx(l1_tilde, a, b + e * p, (j + 1) * T/M5 - t0i, Jbar)
+                m36 = SupPr_Approx(l1_tilde, a, b + e * p, j * T/M5 - t0i, Jbar)
+
 
             c3 += m31 * (m32 * m33 * m34 * (m35 - m36))
+            # if np.isnan(c3):
+            #     print('nan')
             #print(i, j,  m31 * (m32 * m33 * m34 * (m35 - m36)))
             # if j == 186:
             #     print('negative')
         c3_list.append(c3)
         price_list.append(c1[i] + c2[i] + c3)
+
 
     if len(t0) == 1:
         return price_list[0]

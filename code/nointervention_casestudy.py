@@ -24,11 +24,11 @@ def Callback_Stock_CaseStudy(Xi):
 
 
 def Callback_CoCo_CaseStudy(Xi):
-    global Nfeval, wbar, r, q, K, T, t0, c, M, coco_price, l1, a, b, k1, xi1, k2, xi2, l32, ignore_gov, sigma, l2, muV, sigmaV, eta, St
-    func_values = optimize_convertcoco(Xi, w_bar=wbar, r=r, q=q, K=K, T=T, t0=t0, c=c, M=M, coco_price=coco_price,
+    global Nfeval, wbar, r, q, K, T, t0, c, M, coco_price, l1, a, b, k1, xi1, k2, xi2, l32, ignore_gov, sigma, l2, muV, sigmaV, eta, St, cet_value
+    func_values = optimize_convertcoco(Xi,  r=r, q=q, K=K, T=T, t0=t0, c=c, M=M, coco_price=coco_price,
                          l1=l1, a=a, b=b,  # latent params
                          k1=k1, xi1=xi1, k2=k2, xi2=xi2, l32=l32, ignore_gov=ignore_gov,  # intervention params
-                         sigma=sigma, l2=l2, muV=muV, sigmaV=sigmaV, e=eta, St = St)
+                         sigma=sigma, l2=l2, muV=muV, sigmaV=sigmaV, e=eta, St = St, cet=cet_value)
 
     # print('{0: 4d}     w:{1:.4f}     p:{2: .4f}    loss:{3:.4f}'.format(
     #         Nfeval, Xi[0], Xi[1], func_values))
@@ -42,10 +42,10 @@ maturity_c_dict = {'case1': [10, 0.15/2, 20],
                   'case4': [7, 7.25/100/2, 14], # has government intervention
                   'case5': [5, 4.22/100, 5]
                   }
-optimize_stock = False
-save_param = False
+optimize_stock = True
+save_param = True
 
-for process_case in ['case5']:
+for process_case in ['case3', 'case5']:
 
 
     data = pd.read_excel('../data/Charlie1124/'+ process_case + '/data-'+ process_case + '.xlsx')
@@ -60,8 +60,17 @@ for process_case in ['case5']:
     
     maturity = pd.to_datetime(data.index[0]) + pd.DateOffset(years = T)
     t0 = np.array(range(data.index.shape[0]))/252
-    
-    
+
+    if process_case in ['case3', 'case5']:
+        cet_data = pd.read_excel('../data/Charlie1124/' + process_case + '/data-' + process_case + '.xlsx', sheet_name=1)
+        cet_data['Date'] = pd.to_datetime(cet_data['Names Date'])
+        cet_smoothed = cet_data.set_index('Date').resample('D').interpolate()
+        cet_value = cet_smoothed.loc[cet_smoothed.index.isin(data.index), 'CET-1 ratio (phase-in)'].values / 100
+    else:
+        cet_value = None
+
+
+
     if optimize_stock:
         bounds = [(-1, 1), (0, 1), (0, 100), (-1, 1), (0, 1), (0, None), (0, 100), (0, 150)]
     
@@ -77,9 +86,9 @@ for process_case in ['case5']:
         stock_param = pd.DataFrame(sorted_list, columns= ['loss', 'mu', 'sigma', 'l2', 'muV', 'sigmaV', 'eta', 'l1', 'b', 'a'])
     
     if save_param:
-        stock_param.to_csv('../param/J_' + process_case + '.csv', index=False)
+        stock_param.to_csv('../param0218/J_' + process_case + '.csv', index=False)
     else:
-        stock_param = pd.read_csv('../param/J_' + process_case + '.csv')
+        stock_param = pd.read_csv('../param0218/J_' + process_case + '.csv')
     loss, mu, sigma, l2, muV, sigmaV, eta, l1, b, a = stock_param.iloc[0].values
     
     
@@ -90,24 +99,23 @@ for process_case in ['case5']:
     plt.plot(RET_grids, Eval_Density, linestyle='--', label='Fitted')
     plt.plot(RET_grids, Data_DensityStock, label='Kernel')
     plt.legend()
-    plt.show()
-    #plt.savefig('../figure/Sdensity_' +  process_case  + '.jpg', dpi=600)
-    
-    def optimize_convertcoco(param, w_bar = None, r=None, q=None, K=None, T=None,t0 = None, c=None, M=None, coco_price=None,  # data
+    #plt.show()
+    plt.savefig('../figure/Sdensity_' +  process_case  + '.jpg', dpi=600)
+
+    def optimize_convertcoco(param, r=None, q=None, K=None, T=None, t0=None, c=None, M=None,
+                             coco_price=None,  # data
                              l1=None, a=None, b=None,  # latent params
                              k1=None, xi1=None, k2=None, xi2=None, l32=None, ignore_gov=None,  # intervention params
-                             sigma = None, l2=None, muV=None, sigmaV=None, e=None, St = None):
-        #w, p = param
+                             sigma=None, l2=None, muV=None, sigmaV=None, e=None, St=None, cet=None):
         w, p, Jbar = param
         model_price = equityconvert_coco(r, K, T, t0,
                                          l1, a, b,
                                          c, e, p, q,
-                                         Jbar, M, w, w_bar,
+                                         Jbar, M, w, 1,
                                          k1, xi1, k2, xi2,
                                          l2, l32, muV, sigmaV, sigma,
-                                         ignore_gov, St)
-    
-        #loss = np.mean(np.abs(model_price - coco_price) / coco_price)
+                                         ignore_gov, St, 1, cet)
+
         loss = np.sqrt(np.mean((model_price - coco_price) ** 2))
         return loss
 
@@ -116,26 +124,27 @@ for process_case in ['case5']:
     wbar = 1
     q = 0
     K = 100
-    
-    
-    
+
     
     # intervention params
     k1, xi1, k2, xi2, l32, ignore_gov = [None, None, None, None, None, True]
     init, Nfeval = [[0.3, 0.49, 0.3], 1]
     bounds = [(0, 1), (0, 1), (0.01, 4.9)]
     
-    res = minimize(optimize_convertcoco, init, args=(wbar, r, q, K, T, t0, c, M, coco_price,  # data
+    res = minimize(optimize_convertcoco, init, args=( r, q, K, T, t0, c, M, coco_price,  # data
                              l1, a, b,  # latent params
                              k1, xi1, k2, xi2, l32, ignore_gov,  # intervention params
-                             sigma, l2, muV, sigmaV, eta, St),
+                             sigma, l2, muV, sigmaV, eta, St, cet_value),
                    method='Nelder-Mead', options={'maxiter': 100},
                    callback=Callback_CoCo_CaseStudy, bounds=bounds, tol=0.001)
 
-    coco_param = pd.DataFrame([res.fun, *res.x, wbar],
-                               columns=['loss', 'p', 'w', 'Jbar', 'wbar'])
+    coco_param = pd.DataFrame([[res.fun, *res.x, wbar]],
+                              columns=['loss', 'p', 'w', 'Jbar', 'wbar'])
+
+    # coco_param = pd.DataFrame([res.fun, *res.x, wbar],
+    #                            columns=['loss', 'p', 'w', 'Jbar', 'wbar'])
     if save_param:
-        coco_param.to_csv('../param/CoCo_' + process_case + '.csv', index=False)
+        coco_param.to_csv('../param0218/CoCo_' + process_case + '.csv', index=False)
 
     print(res)
     print('end')
