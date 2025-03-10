@@ -53,17 +53,13 @@ def CDensity_derivative(l1, b, a, x, t):
 
 def I1(l1, a, b, t):
     # integrand = lambda y: (1- b*y/(l1 * a * t)) * CDensity_derivative(l1, b, a, y, t)
+    # integrand = lambda y: (1 - b * y / (l1 * a * t)) * np.exp(Density_J(l1, a, b, t, np.array([y])))
     integrand = lambda y: (1 - b * y / (l1 * a * t)) * np.exp(Density_J(l1, a, b, t, np.array([y])))
     lower = 0
     upper = l1 * a * t / b
-    return quad(integrand, lower, upper, epsabs=1e-3)[0]
+    constant = np.exp(-l1 * t)
+    return constant + quad(integrand, lower, upper, epsabs=1e-3)[0]
 
-
-def I2(l1, a, b, t, x):
-    integrand = lambda y: CDensity_derivative(l1, b, a, y, t)
-    lower = 0
-    upper = x
-    return quad(integrand, lower, upper, epsabs=1e-3)[0]
 
 
 def SupPr(l1, a, b, t, x):
@@ -254,6 +250,7 @@ def equityconvert_coco(r, K, T, t0, l1, a, b, c, e, p, q, Jbar, M, w, w_bar,
         #E1(k1, xi1, t, u, t0=0, l31r=0)
         m33 = [E1(k1, xi1, T, 1, t0=t0i) for t0i in t0]
         #(k2, xi2, l2, l32, muV, SigmaV, t, u, t0=0)
+        #k2, xi2, l2, l32, muV, SigmaV = [1.0, 1e-5, 55.9974, 0.1, -0.0021, 0.0419] #ToDo: xi2 domainates
         m34 = [E2(k2, xi2, l2, l32, muV, SigmaV, T, 1, t0=t0i) for t0i in t0]
 
 # import matplotlib.pyplot as plt

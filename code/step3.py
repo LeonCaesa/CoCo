@@ -61,16 +61,16 @@ if __name__ == '__main__':
         plt.savefig('../figure/CDS0131_' + file_name.split('_')[0] + '.jpg', dpi=600)
     plt.show()
 
-    intervention_param = pd.read_csv('../param/Intervention0130_' + file_name.split('.')[0] + '.csv')
-    loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, k1, xi1, k2, xi2, l32 = list(
-        intervention_param.values.squeeze())
-    E_test = E(k1, xi1, k2, xi2, l2_a3, l32, muV_a3, sigmaV_a3, mat_values, 1, 0, 0)
+    # intervention_param = pd.read_csv('../param/Intervention0130_' + file_name.split('.')[0] + '.csv')
+    # loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, k1, xi1, k2, xi2, l32 = list(
+    #     intervention_param.values.squeeze())
+    # E_test = E(k1, xi1, k2, xi2, l2_a3, l32, muV_a3, sigmaV_a3, mat_values, 1, 0, 0)
 
     # [optimization part]
     #k1, xi1, k2, xi2, l32 = param
     init, Nfeval = [[1.5, -0.5, 1.5, 0.5, 0.5], 1]
     #bounds = [(0, 5), (0.01, 2), (1, 10), (0.00001, 2), (0.1, 10)]
-    bounds = [(0, 5), (-2, -0.01), (0.1, 10), (0.1, 2), (0.1, 10)]
+    bounds = [(0, 5), (-2, -0.01), (0.1, 1), (0.00001, 2), (0.1, 10)]
     intervention_res = minimize(optimize_cds, init, args = (l2_a3, muV_a3, sigmaV_a3, mat_values, 0, cds_values), method='Nelder-Mead',
                    options = {'maxiter': 500},
                    callback = Callback_CDS, bounds = bounds, tol = 0.001)
@@ -90,12 +90,12 @@ if __name__ == '__main__':
     loss_a3, l1_a3, b_a3, a3, mu_a3, sigma_a3, l2_a3, muV_a3, sigmaV_a3, e_a3, k1, xi1, k2, xi2, l32 = list(intervention_param.values.squeeze())
 
 
-    np.mean(np.abs(np.log(E_test)/mat_values + cds_values)/cds_values)
-
-    plt.plot(-np.log(E_test)/mat_values, label = 'model')
-    plt.plot(cds_values, label='data')
-    plt.legend()
-    plt.show()
+    # np.mean(np.abs(np.log(E_test)/mat_values + cds_values)/cds_values)
+    #
+    # plt.plot(-np.log(E_test)/mat_values, label = 'model')
+    # plt.plot(cds_values, label='data')
+    # plt.legend()
+    # plt.show()
 
 
     print('done')

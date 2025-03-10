@@ -87,23 +87,26 @@ if __name__ == '__main__':
 
     # loss, p, w, Jbar, wbar, gamma
     # 9.2835, 0.852, 0.05, 0.6717, 0.3896, 0.021
-    p, w, Jbar, wbar, gamma =  [0.9943, 0.0002, 0.1967, 0.9998, 0.0015]
-    model_price = equityconvert_coco(r, K, T, t0,
-                                     l1_a3, a3, b_a3,
-                                     c, e_a3, p, q,
-                                     Jbar, M, w, wbar,
-                                     k1, xi1, k2, xi2,
-                                     l2_a3, l32, muV_a3, sigmaV_a3, sigma_a3,
-                                     ignore_gov=ignore_gov, St=St, gamma = gamma,
-                                     cet = cet_value
-                                     )
+    # p, w, Jbar, wbar, gamma =  [0.9943, 0.0002, 0.1967, 0.9998, 0.0015]
+    # model_price = equityconvert_coco(r, K, T, t0,
+    #                                  l1_a3, a3, b_a3,
+    #                                  c, e_a3, p, q,
+    #                                  Jbar, M, w, wbar,
+    #                                  k1, xi1, k2, xi2,
+    #                                  l2_a3, l32, muV_a3, sigmaV_a3, sigma_a3,
+    #                                  ignore_gov=ignore_gov, St=St, gamma = gamma,
+    #                                  cet = cet_value
+    #                                  )
 # import matplotlib.pyplot as plt
 # plt.plot(model_price, label = 'model')
 # plt.plot(coco_price, label ='actual' )
 # plt.legend()
 
     # w, p, Jbar, w_bar, gamma = param
-    init, Nfeval = [[0.05, 0.8520, 0.3896, 0.3, 0.0210], 1]
+    #init, Nfeval = [[0.05, 0.8520, 0.3896, 0.3, 0.0210], 1]
+    init, Nfeval = [[0.9943, 0.0002, 0.1967, 0.9998, 0.0015], 1]
+    #init, Nfeval = [[0.0000, 0.0501, 0.0007, 1.0000, 0.0001], 1]
+
     bounds = [(0, 1), (0.05, 0.995), (0, 10), (0.1, 1), (0, 1)]
     res = minimize(optimize_convertcoco, init, args=( r, q, K, T, t0, c, M, coco_price,  # data
                                                      l1_a3, a3, b_a3,  # latent params
@@ -114,7 +117,7 @@ if __name__ == '__main__':
     coco_param = pd.DataFrame([res.fun, *res.x],
                               columns=['loss', 'p', 'w', 'Jbar', 'wbar', 'gamma'])
     if save_param:
-        coco_param.to_csv('../param/CoCo0117_case4.csv', index=False)
+        coco_param.to_csv('../param/CoCo_case4.csv', index=False)
 
 
 

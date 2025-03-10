@@ -18,6 +18,7 @@ if __name__ == '__main__':
     date_range = ['1/1/2020', '3/17/2023']
 
     return_data, cet_data, B, J, B_date = load_data('../data', file_name, date_range = date_range)
+    J = J[:-1] # dropping the last smoothing date 
     Diff_J = np.diff(J)
     H = Diff_J - min(Diff_J) + 0.01
 
