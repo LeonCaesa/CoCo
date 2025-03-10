@@ -40,8 +40,8 @@ a_grids = np.random.choice(5, data_size) + 1
 
 # if os.path.exists('./spline_approx.csv'):
 #     Pr_table = pd.read_csv('./spline_approx.csv')
-if os.path.exists('./spline_approx_loop_changed0919.csv'):
-    Pr_table = pd.read_csv('./spline_approx_loop_changed0919.csv')
+if os.path.exists('./spline_approx_loop_changed0309.csv'):
+    Pr_table = pd.read_csv('./spline_approx_loop_changed0309.csv')
     #func_values = Pr_table.iloc[:, -1].values
     func_values = Pr_table.iloc[:, -2].values
     l1_grids = Pr_table.iloc[:, 0].values
@@ -61,13 +61,13 @@ else:
 
         Pr_table = pd.DataFrame([l1_grids[:(i+1)], b_grids[:(i+1)], t_grids[:(i+1)], x_grids[:(i+1)], a_grids[:(i+1)], func_list[:(i+1)], time_list[:(i+1)]]).T
         Pr_table.columns = ['l1', 'b', 't', 'x', 'a', 'func', 'time']
-        Pr_table.to_csv('./spline_approx_loop_changed0919.csv', index = False)
+        Pr_table.to_csv('./spline_approx_loop_changed0309.csv', index = False)
 
 
 #L1_grids, B_grids, T_grids, X_grids = np.meshgrid(l1_grids, b_grids, [0.25] * data_size, x_grids)
 
-if os.path.exists('./SupPr_loop.pkl'):
-    with open('./SupPr_loop.pkl', 'rb') as inp:
+if os.path.exists('./SupPr_loop0309.pkl'):
+    with open('./SupPr_loop0309.pkl', 'rb') as inp:
         spline = pickle.load(inp)
 else:
     na_flag = ~np.isnan(func_values)
@@ -75,7 +75,7 @@ else:
                                 b_grids[na_flag], t_grids[na_flag],
                                 x_grids[na_flag], func_values[na_flag],
                                 function='multiquadric')
-    with open('./SupPr.pkl', 'wb') as file:
+    with open('./SupPr_loop0309.pkl', 'wb') as file:
         pickle.dump(spline ,file)
 #Z = spline(L1_grids, B_grids, T_grids, X_grids)
 func_approx = spline(l1_grids, a_grids, b_grids, t_grids, x_grids)

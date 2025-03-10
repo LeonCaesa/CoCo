@@ -52,8 +52,6 @@ def CDensity_derivative(l1, b, a, x, t):
 
 
 def I1(l1, a, b, t):
-    # integrand = lambda y: (1- b*y/(l1 * a * t)) * CDensity_derivative(l1, b, a, y, t)
-    # integrand = lambda y: (1 - b * y / (l1 * a * t)) * np.exp(Density_J(l1, a, b, t, np.array([y])))
     integrand = lambda y: (1 - b * y / (l1 * a * t)) * np.exp(Density_J(l1, a, b, t, np.array([y])))
     lower = 0
     upper = l1 * a * t / b
@@ -104,8 +102,6 @@ def SupPr(l1, a, b, t, x):
 
 
 def SupPr_Approx(l1, a, b, t, x):
-    #with open('./spline_0814/SupPr.pkl', 'rb') as inp:
-    #with open('./SupPr_loop.pkl', 'rb') as inp:
     with open('./SupPr_loop.pkl', 'rb') as inp:
         spline = pickle.load(inp)
     if isinstance(x, Iterable) and isinstance(t, Iterable):
